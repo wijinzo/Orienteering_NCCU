@@ -1,3 +1,4 @@
+import {checkpointFromLocation,checkpointUrl,homeUrl,APP_BASE_PATH} from './routing.js';
 import {STORY_INTRO,STORY_END,storyReply,PINBALL_REPLIES} from './story-data.js';
 import {createResumeSync} from './resume-sync.js';
 import {beginNetworkWait,showResumeError,clearResumeError} from './network-wait.js';
@@ -15,7 +16,7 @@ let resumeSync=null,mutationEpoch=0,mutationController=null;
 let pendingAction=null,detourView=null,detourId=null,ballotRefreshId=null;
 let api, player, team, state=null, timer=null, ticker=null, alive=0, requestId=0, inFlight=false, visible=false, dismissed=null, viewKey='', cursor=0, draft='', stream=null, scanTimer=null, cameraEpoch=0, clockAnchor=0, performanceAnchor=0, acknowledged=null, retryAction=null;
 const staleAction=()=>Object.assign(new Error('已切換到隊伍的新地點。'),{code:'STALE_ACTION'});
-const externalId=()=>/^\/checkpoint\/([1-9]|1[0-3])\/?$/.exec(location.pathname)?.[1];
+const externalId=()=>checkpointFromLocation()?.toString();
 const run=()=>state?.run;
 const isLeader=()=>team?.leader_id===player?.id;
 const sessionKey=suffix=>`memory:checkpoint:${player?.id}:${run()?.id}:${suffix}`;
@@ -40,7 +41,7 @@ function apply(result,requestStarted){
  state=result;
  const ballotOpens=run()?.ballot?.phase==='open'&&(previous?.run?.ballot?.id!==run().ballot.id||previous?.run?.ballot?.phase!=='open');
  if(ballotOpens){window.dispatchEvent(new Event('team-choice-opened'));dismissed=null;write('dismissed',false);}
- if(forceOpen){window.dispatchEvent(new Event('team-checkpoint-activated'));dismissed=null;write('dismissed',false);history.replaceState({},'',`/checkpoint/${run().checkpoint}`);}
+ if(forceOpen){window.dispatchEvent(new Event('team-checkpoint-activated'));dismissed=null;write('dismissed',false);history.replaceState({},'',checkpointUrl(run().checkpoint));}
  if(JSON.stringify(previous?.progress)!==JSON.stringify(result.progress))window.dispatchEvent(new CustomEvent('checkpoint-progress',{detail:result.progress}));
  if(old!==run()?.id||previous?.run?.phase!==run()?.phase)window.dispatchEvent(new CustomEvent('checkpoint-state',{detail:result.run}));
  if(old!==run()?.id){viewKey='';acknowledged=null;cursor=Number(read('cursor','0'));draft=read('draft');dismissed=read('dismissed')==='true'?run()?.id:null;}
@@ -156,7 +157,7 @@ function countdownClockOnly(){const clock=$('quiz-clock');if(clock&&run()?.deadl
 function choose(choice){transact('choose',{run_id:run().id,choice},'正在確認挑戰時間…').catch(()=>{});}
 async function enter(id,code=null){
  if(inFlight)return;disposeDetour();stopCamera();showOverlay();$('game-body').replaceChildren(node('p','正在確認地點…','loading-copy'));setStatus('正在確認地點…');
- try{const result=await transact('enter',{...(id?{checkpoint:id}:{}),...(code?{code}:{})},'正在確認地點…');if(result?.run){history.replaceState({},'',`/checkpoint/${result.run.checkpoint}`);dismissed=null;write('dismissed',false);viewKey='';render();}}
+ try{const result=await transact('enter',{...(id?{checkpoint:id}:{}),...(code?{code}:{})},'正在確認地點…');if(result?.run){history.replaceState({},'',checkpointUrl(result.run.checkpoint));dismissed=null;write('dismissed',false);viewKey='';render();}}
  catch(error){if(error.code==='STALE_ACTION')return;closeOverlay();setStatus('');window.dispatchEvent(new Event('open-scan-tab'));$('checkpoint-code-details').open=true;$('checkpoint-code-error').textContent=error.message||'無法開啟地點，請確認代碼後再試一次。';$('checkpoint-code-error').hidden=false;$('checkpoint-code').focus();}
 }
 function stopCamera(){cameraEpoch++;clearTimeout(scanTimer);stream?.getTracks().forEach(track=>track.stop());stream=null;const video=$('scanner-video');if(video){video.pause();video.srcObject=null;}$('scanner-view').hidden=true;}
@@ -173,7 +174,7 @@ async function startCamera(){
   if(!window.jsQR)throw new Error('掃碼程式尚未載入，請重試。');
   const canvas=document.createElement('canvas'),context=canvas.getContext('2d',{willReadFrequently:true});
   const scan=()=>{if(epoch!==cameraEpoch||!stream||document.hidden)return;
-   if(video.readyState>=2){const width=Math.min(640,video.videoWidth),height=Math.round(width*video.videoHeight/video.videoWidth);canvas.width=width;canvas.height=height;context.drawImage(video,0,0,width,height);const pixels=context.getImageData(0,0,width,height);const code=window.jsQR(pixels.data,width,height,{inversionAttempts:'dontInvert'});if(code){const invitation=checkpointFromQr(code.data,location.origin);if(invitation&&!inFlight){enter(invitation.checkpoint,invitation.code);return;}if(!invitation)setStatus('這不是本活動的地點 QR Code，請掃描現場標示。');}}
+   if(video.readyState>=2){const width=Math.min(640,video.videoWidth),height=Math.round(width*video.videoHeight/video.videoWidth);canvas.width=width;canvas.height=height;context.drawImage(video,0,0,width,height);const pixels=context.getImageData(0,0,width,height);const code=window.jsQR(pixels.data,width,height,{inversionAttempts:'dontInvert'});if(code){const invitation=checkpointFromQr(code.data,location.origin,APP_BASE_PATH);if(invitation&&!inFlight){enter(invitation.checkpoint,invitation.code);return;}if(!invitation)setStatus('這不是本活動的地點 QR Code，請掃描現場標示。');}}
    scanTimer=setTimeout(scan,180);
   };scan();
  }catch(error){stopCamera();$('game-body').replaceChildren(node('p','相機尚未開啟','loading-copy'));const message=error.name==='NotAllowedError'?'相機權限未開啟。請允許此網站使用相機後重試，也可用手機相機掃碼。':error.name==='NotFoundError'?'找不到可使用的相機，請改用手機。':error.message;setStatus(message,true);retryAction=startCamera;}
@@ -208,7 +209,7 @@ window.addEventListener('resume-checkpoint',()=>{if(run()){dismissed=null;write(
 window.addEventListener('open-checkpoint',async event=>{
  if(!player||inFlight)return;const candidates=event.detail;disposeDetour();stopCamera();showOverlay();$('game-body').replaceChildren(node('p','正在確認支線進度…','loading-copy'));setStatus('正在確認支線進度…');
  const expected=alive,request=++requestId,started=performance.now();
- try{let result;for(const id of candidates){result=await api(`/api/game?checkpoint=${id}`,{wait:true,waitLabel:'正在確認支線進度…'});if(expected!==alive||request!==requestId)return;if(result.run)break;}if(result?.run){history.pushState({},'',`/checkpoint/${result.run.checkpoint}`);dismissed=null;apply(result,started);render();setStatus('');}else{setStatus('');closeOverlay();window.dispatchEvent(new Event('open-scan-tab'));$('checkpoint-code-details').open=true;$('checkpoint-code').focus();}}
+ try{let result;for(const id of candidates){result=await api(`/api/game?checkpoint=${id}`,{wait:true,waitLabel:'正在確認支線進度…'});if(expected!==alive||request!==requestId)return;if(result.run)break;}if(result?.run){history.pushState({},'',checkpointUrl(result.run.checkpoint));dismissed=null;apply(result,started);render();setStatus('');}else{setStatus('');closeOverlay();window.dispatchEvent(new Event('open-scan-tab'));$('checkpoint-code-details').open=true;$('checkpoint-code').focus();}}
  catch(error){if(expected===alive){setStatus(error.message,true);retryAction=()=>window.dispatchEvent(new CustomEvent('open-checkpoint',{detail:candidates}));}}
 });
 $('game-close').onclick=()=>{write('dismissed',true);closeOverlay();};
@@ -222,7 +223,7 @@ $('checkpoint-code-form').onsubmit=event=>{
 };
 $('game-use-code').onclick=()=>{closeOverlay();window.dispatchEvent(new CustomEvent('open-code-entry'));$('checkpoint-code-details').open=true;$('checkpoint-code').focus();};
 $('resume-checkpoint').onclick=()=>{dismissed=null;write('dismissed',false);showOverlay();render();refresh(true);};
-$('scan-return-home').onclick=()=>{history.replaceState({},'','/');$('scan-identity-view').hidden=true;location.reload();};
+$('scan-return-home').onclick=()=>{history.replaceState({},'',homeUrl());$('scan-identity-view').hidden=true;location.reload();};
 $('checkpoint-overlay').addEventListener('keydown',event=>{if(event.key==='Escape'){closeOverlay();return;}if(event.key!=='Tab')return;const controls=[...$('checkpoint-overlay').querySelectorAll('button:not(:disabled),input:not(:disabled)')].filter(el=>el.getClientRects().length);if(!controls.length)return;const first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}});
 function renderDetour(r){
  const path=$('game-path');path.replaceChildren(node('span','地點'),node('span',r.checkpoint===8?'1':'4','checkpoint-number'),node('span','→','checkpoint-arrow'),node('span',String(r.checkpoint),'checkpoint-number'));
@@ -517,4 +518,4 @@ function render2(r,key){
  if(inFlight)body.querySelectorAll('button,input').forEach(el=>el.disabled=true);
 }
 
-window.addEventListener('memory-home-return',()=>{if(visible)closeOverlay();history.replaceState({},'','/');});
+window.addEventListener('memory-home-return',()=>{if(visible)closeOverlay();history.replaceState({},'',homeUrl());});

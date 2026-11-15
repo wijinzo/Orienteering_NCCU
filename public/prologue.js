@@ -1,3 +1,4 @@
+import {checkpointFromLocation} from './routing.js';
 import {openJourneyViewer} from './journey-viewer.js';
 import {OPENING_SCENES,OPENING_OPTIONS} from './prologue-data.js';
 import {storyNode as node,storyButton as button,storyNext,renderStoryScene} from './story-ui.js';
@@ -10,7 +11,7 @@ const write=(part,value)=>{try{localStorage.setItem(key(part),String(value));}ca
 const leader=()=>team?.leader_id===player?.id;
 const introSeen=()=>{try{return localStorage.getItem(`memory:sightings:${player?.id}:intro`)==='true';}catch{return false;}};
 function maybeOpen(){
- if(!player||!run||read('done')==='true'||!introSeen()||document.querySelector('.sighting-viewer')||/^\/checkpoint\//.test(location.pathname))return;
+ if(!player||!run||read('done')==='true'||!introSeen()||document.querySelector('.sighting-viewer')||checkpointFromLocation())return;
  // Existing teams already exploring before this feature do not get pulled into a new prologue.
  if(run.finished&&!run.choices.help){write('done',true);return;}
  if(!viewer){cursor=Math.max(0,Math.min(OPENING_SCENES.length,Number(read('cursor','0'))||0));viewer=openJourneyViewer({title:'奶龍的委託',kind:'opening',dismissible:false,onClose:()=>{viewer=null;viewKey='';}});viewKey='';}

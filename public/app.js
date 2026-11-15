@@ -1,3 +1,4 @@
+import {checkpointFromLocation} from './routing.js';
 import {startAchievements} from './achievements.js';
 import { createApi, createProgressStore } from './progress.js';
 import { startJourney, stopJourney, renderJourneyProgress } from './journey.js';
@@ -58,9 +59,9 @@ function enterHome(player, progress) {
   store = createProgressStore({ api, onChange: renderProgress, onAuthExpired: expired });
   store.initialize(progress);
   $('player-label').textContent = player.player_code;
-  const match = /^\/checkpoint\/([A-Za-z0-9_-]{1,80})\/?$/.exec(location.pathname);
+  const checkpoint = checkpointFromLocation();
   $('checkpoint-notice').hidden = true;
-  if (match) $('checkpoint-message').textContent = `你已抵達關卡 ${match[1]}。`;
+  if (checkpoint) $('checkpoint-message').textContent = `你已抵達關卡 ${checkpoint}。`;
   show('home-view');
   startJourney(api, player);
   startCheckpoint(api, player);

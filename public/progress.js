@@ -10,7 +10,8 @@ export function createApi(getToken, request = fetch, waitFor = beginNetworkWait)
     try {
     let response;
     try {
-      response = await request(path, {
+      const apiBase=globalThis.APP_CONFIG?.API_BASE_URL?.replace(/\/$/,'')??'';
+      response = await request(apiBase?apiBase+path:path, {
         method, headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: signal?AbortSignal.any([signal,AbortSignal.timeout(timeoutMs)]):AbortSignal.timeout(timeoutMs), cache: 'no-store',

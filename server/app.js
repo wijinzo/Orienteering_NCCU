@@ -25,6 +25,13 @@ export function createApp({ config, repository, classifier = createClassifier({a
     if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
     next();
   });
+  const frontendOrigins=new Set(config.frontendOrigins??[]);
+  app.use('/api',(req,res,next)=>{
+    const origin=req.get('Origin'),allowed=frontendOrigins.has(origin);
+    if(allowed){res.vary('Origin');res.set({'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET, POST, PUT, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'});}
+    if(req.method==='OPTIONS')return allowed?res.sendStatus(204):res.status(403).json({error:'此網站來源未獲允許。',code:'ORIGIN_DENIED'});
+    next();
+  });
   app.use('/api', express.json({ limit: '32kb' }));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
 

@@ -1,3 +1,4 @@
+import {checkpointFromLocation} from './routing.js';
 import {closePhotoLayers} from './sighting-photos.js';
 import {createPost,SIGHTING_PHOTOS,snapshotPost} from './post-card.js';
 import {windDissolve} from './wind-particles.js';
@@ -35,7 +36,7 @@ export function showFarewellPost({force=false}={}){
 }
 export function startSightings(currentPlayer){stopSightings();player=currentPlayer;preload();let access=document.getElementById('sighting-access');if(!access){access=node('button','奶龍目擊情報','sighting-access');access.type='button';access.onclick=showSightingIntro;document.querySelector('#explore-panel .explore-heading')?.after(access);}}
 export function stopSightings(){epoch++;close();player=null;}
-window.addEventListener('team-state',event=>{if(player&&event.detail?.phase==='elected'&&!seen('intro')&&!/^\/checkpoint\//.test(location.pathname)&&!viewer)showSightingIntro();});
+window.addEventListener('team-state',event=>{if(player&&event.detail?.phase==='elected'&&!seen('intro')&&!checkpointFromLocation()&&!viewer)showSightingIntro();});
 
 window.addEventListener('team-checkpoint-activated',()=>close());
 
