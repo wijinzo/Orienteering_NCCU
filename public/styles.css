@@ -117,3 +117,5 @@ body.checkpoint-open{overflow:hidden}
 .game-body.finale-note{background:rgba(255,250,241,.96);border:1px solid #ded7c9;border-radius:22px;padding:8px 12px;box-shadow:0 5px 22px #354b6114;color:#354b61}.finale-note .find-heading,.finale-note .finale-invitation,.finale-note .chat-form label{color:#354b61}.finale-note .chat-form label{font-weight:600}.finale-note #finale-note{background:#fffdf8}.finale-note>.stage-note{background:#f0e9dc;border-radius:12px;padding:7px 10px}
 
 .story-vote-leader-hint{font-size:13px;line-height:1.6;padding:9px 12px;margin:8px 0;background:#f2e6cc;color:#695127;border:1px solid #d8c49c;border-radius:12px}
+
+.team-picker .solo-option{grid-column:1/-1}.solo-option span{font-size:14px;border-color:var(--gold)}#solo-name-fields>label{display:block;margin:12px 0 8px}

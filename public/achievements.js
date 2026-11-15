@@ -17,6 +17,7 @@ function renderTiming(){
 function render(){
  const list=document.getElementById('achievement-list');if(!list)return;list.replaceChildren();list.setAttribute('role','list');
  for(const [index,item] of ACHIEVEMENTS.entries()){
+  if(result?.achievements.find(value=>value.code===item.code)?.status==='not_applicable')continue;
   const value=result?.achievements.find(value=>value.code===item.code),card=node('section',undefined,'achievement-card');card.dataset.achievement=item.code;card.dataset.unlocked=String(!!value?.unlocked);card.setAttribute('role','listitem');
   const badge=node('span',value?.unlocked?'✓':String(index+1).padStart(2,'0'),'achievement-badge');badge.setAttribute('aria-hidden','true');const copy=node('div');copy.append(node('span',item.scope,'achievement-scope'),node('h3',item.name),node('p',item.description),node('strong',achievementProgress(value),'achievement-progress'));card.append(badge,copy);list.append(card);
  }renderTiming();
@@ -25,7 +26,7 @@ async function refresh({explicit=false}={}){
  if(!player)return;if(document.hidden||busy){dirty=true;return;}busy=true;dirty=false;const expected=version,status=document.getElementById('achievement-status'),button=document.getElementById('achievement-refresh');button.disabled=true;if(explicit)status.textContent='正在找回成就…';
  try{const data=await api('/api/achievements',{wait:explicit,waitLabel:'正在找回你的成就…'});if(expected!==version)return;result=data;clock=Date.parse(data.server_time);anchor=performance.now();
   const unlocked=data.achievements.filter(item=>item.unlocked).map(item=>item.code),fresh=ACHIEVEMENTS.filter(item=>unlocked.includes(item.code)&&!seen.has(item.code));if(baseline)announce(fresh);for(const code of unlocked)seen.add(code);baseline=true;try{localStorage.setItem(key(),JSON.stringify([...seen]));}catch{}
-  render();status.textContent=`已解鎖 ${unlocked.length}／${ACHIEVEMENTS.length} 個成就`;
+  render();status.textContent=`已解鎖 ${unlocked.length}／${data.achievements.filter(item=>item.status!=='not_applicable').length} 個成就${data.mode==='solo'?' · 個人模式不參與首通排名':''}`;
  }catch{if(expected===version)status.textContent='成就暫時無法載入，請稍後按「更新成就」重試。';}
  finally{if(expected===version){busy=false;button.disabled=false;if(dirty&&!document.hidden)schedule();}}
 }

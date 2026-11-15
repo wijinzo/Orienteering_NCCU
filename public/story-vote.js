@@ -26,21 +26,21 @@ export function hasPendingChoiceResult(run){
  const result=run?.choice_result;
  return !!result&&!choiceResultSeen(result.id)&&!(run.checkpoint===10&&run.my_read)&&!run.ballot&&(!run.vote_slot||run.vote_slot===result.slot);
 }
-function renderChoiceResult(run,visible){
+function renderChoiceResult(run,visible,solo=false){
  let card=document.getElementById('story-choice-result');const result=run?.choice_result;
  if(!visible||!hasPendingChoiceResult(run)){card?.remove();return;}
  if(card?.dataset.result===result.id)return;
  card?.remove();
  const options=OPTIONS[`${run.checkpoint}:${result.slot}`]??[],label=options.find(([id])=>id===result.choice)?.[1]??result.choice;
- mountChoiceResult(document.querySelector('.checkpoint-stage'),{id:result.id,label,myLabel:options.find(([id])=>id===result.my_choice)?.[1],onConfirm:()=>window.dispatchEvent(new Event('choice-result-confirmed'))});
+ mountChoiceResult(document.querySelector('.checkpoint-stage'),{id:result.id,label,solo,myLabel:options.find(([id])=>id===result.my_choice)?.[1],onConfirm:()=>window.dispatchEvent(new Event('choice-result-confirmed'))});
 }
-export function renderStoryVote({run,visible,inFlight,submit,leader=false,serverNow=Date.now()}){
- renderChoiceResult(run,visible);
+export function renderStoryVote({run,visible,inFlight,submit,leader=false,solo=false,serverNow=Date.now()}){
+ renderChoiceResult(run,visible,solo);
  updateVoteCountdown(run?.ballot,serverNow);
  let panel=document.getElementById('story-vote-panel'),notice=document.getElementById('story-vote-notice');const ballot=run?.ballot;
  const controls=document.querySelector('#game-body .story-controls'),atOptions=controls?.querySelectorAll('button:not(.story-next)').length>1;
  let hint=document.getElementById('story-vote-leader-hint');
- if(visible&&leader&&atOptions&&run?.vote_slot&&ballot?.phase!=='open'){
+ if(visible&&leader&&!solo&&atOptions&&run?.vote_slot&&ballot?.phase!=='open'){
   if(!hint){hint=document.createElement('p');hint.id='story-vote-leader-hint';hint.className='story-vote-leader-hint';hint.textContent='選擇任一選項後，全隊會進入 10 秒投票。請先確認隊員都準備好了。';controls.before(hint);}
  }else hint?.remove();
  if(ballot?.phase==='open'&&!visible){

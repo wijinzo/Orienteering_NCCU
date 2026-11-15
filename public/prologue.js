@@ -1,4 +1,5 @@
 import {checkpointFromLocation} from './routing.js';
+import {isSoloTeam} from './play-mode.js';
 import {openJourneyViewer} from './journey-viewer.js';
 import {OPENING_SCENES,OPENING_OPTIONS} from './prologue-data.js';
 import {storyNode as node,storyButton as button,storyNext,renderStoryScene} from './story-ui.js';
@@ -50,7 +51,7 @@ function render(){
    if(selected){renderStoryScene(body,{text:selected[2],actions:[storyNext(advance)]});}
    else{
     renderStoryScene(body,{text:question.question,actions:question.options.map(([choice,label])=>button(label,()=>send('choose',{slot:current.slot,choice})))});
-    body.append(node('p',leader()?'選擇任一選項後，全隊會進入 10 秒投票。請先確認隊員都準備好了。':'各自選擇；隊長選擇後開始 10 秒確認時間。','stage-note'));
+    body.append(node('p',isSoloTeam(team)?'選擇你想說的話，由你決定這段旅程。':leader()?'選擇任一選項後，全隊會進入 10 秒投票。請先確認隊員都準備好了。':'各自選擇；隊長選擇後開始 10 秒確認時間。','stage-note'));
    }
   }
  }
@@ -64,7 +65,7 @@ function render(){
  if(pending)body.querySelectorAll('button').forEach(el=>el.disabled=true);
  if(!ballot){
   const slot=['help','depart'].find(slot=>run.choices[slot]&&!choiceResultSeen(`opening:${player.id}:${run.id}:${slot}`));
-  if(slot&&!viewer.root.querySelector('.story-choice-result')){const selected=OPENING_OPTIONS[slot].options.find(([id])=>id===run.choices[slot]);mountChoiceResult(viewer.stage,{elementId:'opening-choice-result',id:`opening:${player.id}:${run.id}:${slot}`,label:selected[1],onConfirm:()=>{viewKey='';render();viewer?.body.querySelector('button:not(:disabled)')?.focus({preventScroll:true});}});}
+  if(slot&&!viewer.root.querySelector('.story-choice-result')){const selected=OPENING_OPTIONS[slot].options.find(([id])=>id===run.choices[slot]);mountChoiceResult(viewer.stage,{solo:isSoloTeam(team),elementId:'opening-choice-result',id:`opening:${player.id}:${run.id}:${slot}`,label:selected[1],onConfirm:()=>{viewKey='';render();viewer?.body.querySelector('button:not(:disabled)')?.focus({preventScroll:true});}});}
  }
 }
 export function startPrologue(client,currentPlayer){stopPrologue();api=client;player=currentPlayer;ticker=setInterval(clock,250);}

@@ -1,9 +1,12 @@
 export class InputError extends Error {}
 export function parseRegistration(body) {
-  if (!isRecord(body) || !Number.isInteger(body.team_number) || body.team_number < 1 || body.team_number > 10) throw new InputError('請選擇第 1～10 組。');
+  if(!isRecord(body)||body.mode!==undefined&&!['team','solo'].includes(body.mode))throw new InputError('請選擇團隊或個人遊玩。');
+  const solo=body.mode==='solo';
+  if (!solo&&(!Number.isInteger(body.team_number) || body.team_number < 1 || body.team_number > 10)) throw new InputError('請選擇第 1～10 組。');
+  if(solo&&(typeof body.name!=='string'||!body.name.trim()||[...body.name.trim()].length>20||/[\u0000-\u001f\u007f]/.test(body.name)))throw new InputError('請輸入 1～20 字的冒險者名字。');
   if (typeof body.device_key !== 'string' || !/^[a-f0-9]{64}$/.test(body.device_key)) throw new InputError('無法辨識此裝置，請重新整理後再試。');
   if (typeof body.invite_code !== 'string' || !body.invite_code || body.invite_code.length > 200) throw new InputError('請輸入活動邀請碼。');
-  return { teamNumber: body.team_number, deviceKey: body.device_key, inviteCode: body.invite_code };
+  return { mode:solo?'solo':'team',name:solo?body.name.trim():undefined,teamNumber: body.team_number, deviceKey: body.device_key, inviteCode: body.invite_code };
 }
 export const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 

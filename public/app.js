@@ -22,13 +22,21 @@ function loginScreen(message = '') {
   teamProgress = null; lastProgressSnapshot = null;
   session += 1;
   token = null; clearToken(); store?.dispose(); store = null;
-  $('login-form').reset(); $('invite-code').type = 'password';
+  $('login-form').reset(); updateLoginMode(); $('invite-code').type = 'password';
   $('toggle-invite').textContent = '顯示'; $('toggle-invite').setAttribute('aria-pressed', 'false');
   $('choices-record').textContent = ''; $('completed-list').replaceChildren(); $('player-label').textContent = '';
   errorText('login-error', message); show('login-view');
   protectExternalScan();
 }
-function expired() { loginScreen('登入已過期，請選擇原組別並輸入邀請碼，接續你的身分。'); }
+function updateLoginMode(){
+  const solo=document.querySelector('input[name="team_number"]:checked')?.value==='solo';
+  $('solo-name-fields').hidden=!solo;$('solo-name').required=solo;
+  $('login-mode-title').textContent=solo?'展開個人冒險':'加入你的隊伍';
+  $('login-button').firstElementChild.textContent=solo?'開始個人冒險':'加入隊伍';
+  $('login-next-step').textContent=solo?'獨立保存個人進度，不用等待隊長或隊友，不參與團隊首通排名。':'玩家編號由系統自動配發。下一步填寫冒險者名字，等待隊員到齊。';
+}
+$('login-form').addEventListener('change',updateLoginMode);
+function expired() { loginScreen('登入已過期，請選擇原本的個人模式或組別，輸入邀請碼接續旅程。'); }
 function dateText(value) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value));
@@ -100,14 +108,15 @@ $('login-form').addEventListener('submit', async (event) => {
         localStorage.setItem(DEVICE_KEY, deviceKey);
       }
     } catch { throw new Error('瀏覽器無法保存身分，請允許網站儲存資料後再試。'); }
-    const result = await api('/api/auth/login', { method: 'POST', token: null, body: { team_number: Number(selected.value), device_key: deviceKey, invite_code: $('invite-code').value } });
+    const solo=selected.value==='solo';
+    const result = await api('/api/auth/login', { method: 'POST', token: null, body: { ...(solo?{mode:'solo',name:$('solo-name').value.trim()}:{team_number:Number(selected.value)}), device_key: deviceKey, invite_code: $('invite-code').value } });
     if (attempt !== session) return;
     try { localStorage.setItem(TOKEN_KEY, result.token); }
     catch { throw new Error('瀏覽器無法保存登入資料，請允許網站儲存資料後再試。'); }
     token = result.token; $('invite-code').value = '';
     enterHome(result.player, result.progress);
   } catch (error) { if (attempt === session) errorText('login-error', error.message); }
-  finally { button.disabled = false; button.firstElementChild.textContent = '加入隊伍'; }
+  finally { button.disabled = false; updateLoginMode(); }
 });
 $('toggle-invite').addEventListener('click', () => {
   const visible = $('invite-code').type === 'password';

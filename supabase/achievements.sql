@@ -70,7 +70,9 @@ begin
   insert into public.team_achievement_times(team_id,finished_at) values(new.team_id,v_time)
   on conflict(team_id) do update set finished_at=coalesce(public.team_achievement_times.finished_at,excluded.finished_at);
   -- One unique activity row: simultaneous completions cannot award two winning teams.
-  insert into public.activity_first_finish values(v_activity,new.team_id,v_time) on conflict(activity_id) do nothing;
+  if not exists(select 1 from public.teams where id=new.team_id and state->>'mode'='solo') then
+   insert into public.activity_first_finish values(v_activity,new.team_id,v_time) on conflict(activity_id) do nothing;
+  end if;
  end if;return new;
 end;$$;
 create or replace function public.track_achievement_checkpoint_start() returns trigger language plpgsql security invoker set search_path='' as $$
@@ -100,7 +102,7 @@ join public.checkpoint10_runs g on g.team_id=t.id join public.checkpoint10_reade
 group by t.id on conflict(team_id) do update set finished_at=coalesce(public.team_achievement_times.finished_at,excluded.finished_at);
 insert into public.activity_first_finish(activity_id,team_id,finished_at)
 select distinct on(t.activity_id) t.activity_id,a.team_id,a.finished_at from public.team_achievement_times a join public.teams t on t.id=a.team_id
-where a.finished_at is not null order by t.activity_id,a.finished_at,a.team_id on conflict(activity_id) do nothing;
+where a.finished_at is not null and coalesce(t.state->>'mode','team')<>'solo' order by t.activity_id,a.finished_at,a.team_id on conflict(activity_id) do nothing;
 
 create or replace function public.get_achievements(p_activity text,p_player uuid) returns jsonb
 language plpgsql security invoker set search_path='' as $$
@@ -117,9 +119,9 @@ begin
  select exists(select 1 from public.checkpoint10_notes note join public.checkpoint10_readers reader on reader.run_id=note.run_id and reader.player_id=note.player_id join public.checkpoint10_runs r on r.id=note.run_id where r.team_id=t.id and note.player_id=p_player) into personal_note;
  select p.shots,p.done into shot_count,pinball_done from public.checkpoint3_players p join public.checkpoint3_runs r on r.id=p.run_id where r.team_id=t.id and p.player_id=p_player;
  select exists(select 1 from public.checkpoint3_runs where team_id=t.id) into game_started;
- return jsonb_build_object('server_time',clock_timestamp(),'timing',jsonb_build_object('started_at',times.started_at,'finished_at',times.finished_at),
+ return jsonb_build_object('server_time',clock_timestamp(),'mode',coalesce(t.state->>'mode','team'),'timing',jsonb_build_object('started_at',times.started_at,'finished_at',times.finished_at),
  'achievements',jsonb_build_array(
-  jsonb_build_object('code','first_finish','scope','team','unlocked',coalesce(winner.team_id=t.id,false),'status',case when winner.team_id=t.id then 'unlocked' when winner.team_id is not null then 'missed' else 'pending' end),
+  jsonb_build_object('code','first_finish','scope','team','unlocked',coalesce(winner.team_id=t.id,false),'status',case when t.state->>'mode'='solo' then 'not_applicable' when winner.team_id=t.id then 'unlocked' when winner.team_id is not null then 'missed' else 'pending' end),
   jsonb_build_object('code','all_locations','scope','team','unlocked',n=13,'progress',n,'target',13),
   jsonb_build_object('code','cipher_master','scope','team','unlocked',solved and guesses between 1 and 5,'progress',guesses,'target',5,'status',case when guesses>5 then 'missed' else 'pending' end),
   jsonb_build_object('code','memory_collector','scope','personal','unlocked',personal_note),
@@ -165,7 +167,7 @@ begin
  -- If only one team was reset, preserve the first eligible finisher among remaining teams.
  insert into public.activity_first_finish(activity_id,team_id,finished_at)
  select t.activity_id,a.team_id,a.finished_at from public.team_achievement_times a join public.teams t on t.id=a.team_id
- where t.activity_id=p_activity and a.finished_at is not null order by a.finished_at,a.team_id limit 1 on conflict(activity_id) do nothing;
+ where t.activity_id=p_activity and a.finished_at is not null and coalesce(t.state->>'mode','team')<>'solo' order by a.finished_at,a.team_id limit 1 on conflict(activity_id) do nothing;
  return jsonb_build_object('reset_teams',cardinality(ids),'reset_players',coalesce(cardinality(v_players),0));
 end;$$;
 revoke all on function public.reset_game_data(text,text,integer) from public,anon,authenticated,service_role;

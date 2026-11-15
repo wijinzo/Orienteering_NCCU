@@ -38,7 +38,8 @@ export function createApp({ config, repository, classifier = createClassifier({a
   app.post('/api/auth/login', async (req, res) => {
     const input = parseRegistration(req.body);
     if (!matchesInvite(input.inviteCode, config.inviteCode)) return res.status(401).json({ error: '活動邀請碼不正確，請確認後重試。', code: 'INVITE_INVALID' });
-    const result = await repository.register(input.teamNumber, createHash('sha256').update(input.deviceKey).digest('hex'));
+    const deviceHash=createHash('sha256').update(input.mode==='solo'?'solo:'+input.deviceKey:input.deviceKey).digest('hex');
+    const result = input.mode==='solo'?await repository.registerSolo(deviceHash,input.name):await repository.register(input.teamNumber,deviceHash);
     if (result.error) return res.status(409).json(result);
     const { player, progress, team } = result;
     const token = await auth.issue(player);

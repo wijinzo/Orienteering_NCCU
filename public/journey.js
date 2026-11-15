@@ -1,6 +1,7 @@
 import {startSightings,stopSightings} from './sightings.js';
 import {startMemories,stopMemories,createMemoryCenter} from './memories.js';
 import {MEMORY_PARTS} from './memory-data.js';
+import {isSoloTeam,teamDisplayName} from './play-mode.js';
 let finalSelected=false,memorySummary=null,foregroundTeamPending=false;
 const $ = id => document.getElementById(id);
 const branches = [
@@ -84,18 +85,20 @@ function renderTeam() {
     if (!unlocked) selectTab('team');
     else if (!wasUnlocked) { selectTab('explore'); window.scrollTo(0, 0); }
     $('team-loading').hidden = true; $('join-form').hidden = !!team; $('team-content').hidden = !team;
-    $('team-label').textContent = team ? `第 ${Number(team.code)} 組` : '正在讀取組別'; $('role-label').textContent = team?.leader_id === player?.id ? '隊長' : team ? '隊員' : '探路者';
+    const solo=isSoloTeam(team);
+    $('team-label').textContent = teamDisplayName(team); $('role-label').textContent = solo?'冒險者':team?.leader_id === player?.id ? '隊長' : team ? '隊員' : '探路者';
     $('adventurer-label').textContent = team?.members.find(member => member.id === player?.id)?.name || '冒險者';
     renderFlower(); if (!team) return;
     window.dispatchEvent(new CustomEvent('team-state', { detail: team }));
-    $('team-name').textContent = `第 ${Number(team.code)} 組 · 你的編號 ${player.player_code}`;
-    $('team-page-title').textContent = team.phase === 'lobby' ? '等待夥伴集合' : team.phase === 'voting' ? '選出我們的隊長' : '我們的隊伍';
-    $('team-page-description').textContent = team.phase === 'lobby' ? '填好冒險者名字，確認本次參與的隊員都到齊了，再準備出發。' : team.phase === 'voting' ? '全員投完並選出隊長後，將自動進入探索首頁。' : '和夥伴一起，找回校園裡的記憶。';
-    $('team-phase').textContent = { lobby: '集合中', voting: '隊長投票', elected: '已選出隊長' }[team.phase];
+    $('player-label').textContent=solo?player.player_code.slice(0,8):player.player_code;
+    $('team-name').textContent = solo?'你的個人進度會獨立保存':`${teamDisplayName(team)} · 你的編號 ${player.player_code}`;
+    $('team-page-title').textContent = solo?'我的個人冒險':team.phase === 'lobby' ? '等待夥伴集合' : team.phase === 'voting' ? '選出我們的隊長' : '我們的隊伍';
+    $('team-page-description').textContent = solo?'這段旅程由你決定，進度與正式隊伍分開保存。':team.phase === 'lobby' ? '填好冒險者名字，確認本次參與的隊員都到齊了，再準備出發。' : team.phase === 'voting' ? '全員投完並選出隊長後，將自動進入探索首頁。' : '和夥伴一起，找回校園裡的記憶。';
+    $('team-phase').textContent = solo?'個人模式':{ lobby: '集合中', voting: '隊長投票', elected: '已選出隊長' }[team.phase];
     $('member-list').replaceChildren(...team.members.map(member => {
         const li = document.createElement('li'), name = document.createElement('span'), state = document.createElement('span'); name.textContent = `${member.name || '尚未填寫名字'}${member.id === player.id ? '（你）' : ''}`;
         const code = document.createElement('small'); code.textContent = `編號 ${member.code}`; name.append(code);
-        state.textContent = team.phase === 'lobby' ? (member.ready ? '已準備' : '等待準備') : member.id === team.leader_id ? '隊長' : team.phase === 'voting' ? (team.electors.includes(member.id) ? team.voted_ids.includes(member.id) ? '已投票' : '待投票' : '下輪旅程加入') : '隊員'; li.append(name, state); return li;
+        state.textContent = solo?'冒險者':team.phase === 'lobby' ? (member.ready ? '已準備' : '等待準備') : member.id === team.leader_id ? '隊長' : team.phase === 'voting' ? (team.electors.includes(member.id) ? team.voted_ids.includes(member.id) ? '已投票' : '待投票' : '下輪旅程加入') : '隊員'; li.append(name, state); return li;
     }));
     for (const [phase, id] of [['lobby', 'lobby-controls'], ['voting', 'voting-controls'], ['elected', 'elected-controls']]) $(id).hidden = team.phase !== phase;
     $('leave-team-button').hidden=!['lobby','voting'].includes(team.phase);
@@ -118,7 +121,7 @@ function renderTeam() {
         $('candidate-list').replaceChildren(); const legend = document.createElement('legend'); legend.textContent = '選擇你推薦的隊長'; $('candidate-list').append(legend); $('candidate-list').dataset.round = team.round;
         for (const id of team.candidates) { const member = team.members.find(m => m.id === id), label = document.createElement('label'), input = document.createElement('input'); label.className = 'candidate'; input.type = 'radio'; input.name = 'candidate'; input.value = id; input.required = true; input.checked = id === chosen; label.append(input, `${member.name || '隊員'} · ${member.code}${id === player.id ? '（你）' : ''}`); $('candidate-list').append(label); }
     }
-    if (team.phase === 'elected') $('leader-result').textContent = `本次隊長：${team.members.find(m => m.id === team.leader_id)?.name || '隊員'}`;
+    if (team.phase === 'elected') {$('leader-result').textContent = solo?'所有關卡都由你操作':`本次隊長：${team.members.find(m => m.id === team.leader_id)?.name || '隊員'}`;$('leader-result').nextElementSibling.textContent=solo?'可自行掃碼、選擇對話和完成遊戲，不需要等待其他人。':'隊長負責到站掃碼與一般任務提交，團隊任務由大家一起參與。';}
 }
 async function refresh(force=false) {
     if (!player || document.hidden) return;

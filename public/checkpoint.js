@@ -1,4 +1,5 @@
 import {checkpointFromLocation,checkpointUrl,homeUrl,APP_BASE_PATH} from './routing.js';
+import {isSoloTeam} from './play-mode.js';
 import {STORY_INTRO,STORY_END,storyReply,PINBALL_REPLIES} from './story-data.js';
 import {createResumeSync} from './resume-sync.js';
 import {beginNetworkWait,showResumeError,clearResumeError} from './network-wait.js';
@@ -91,7 +92,7 @@ function render(){
   if(introUnread(run())){controls.replaceChildren(next(()=>{write('intro-options-seen','1');viewKey='';render();}));}
   else if(run()?.phase==='story')write('intro-options-seen','1');
  }
- renderStoryVote({run:run(),visible:visible&&$('scanner-view').hidden,inFlight,leader:isLeader(),serverNow:now(),submit:(action,choice)=>transact(action,{run_id:run().id,choice},'正在確認大家的選擇…').catch(()=>{})});
+ renderStoryVote({run:run(),visible:visible&&$('scanner-view').hidden,inFlight,leader:isLeader(),solo:isSoloTeam(team),serverNow:now(),submit:(action,choice)=>transact(action,{run_id:run().id,choice},isSoloTeam(team)?'正在確認你的選擇…':'正在確認大家的選擇…').catch(()=>{})});
 }
 function renderContent(){
  if(!visible||!$('scanner-view').hidden )return;

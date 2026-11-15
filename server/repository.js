@@ -22,6 +22,7 @@ export function createRepository(config, request = fetch) {
   const query = (table, parameters) => `${table}?${new URLSearchParams(parameters)}`;
 
   return {
+    async registerSolo(deviceHash,name){return call('rpc/register_solo_player',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_device_hash:deviceHash,p_name:name})});},
     async leaveTeam(playerId){return call('rpc/leave_team',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})});},
     async achievements(playerId){return call('rpc/get_achievements',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})});},
     async prologueAction(playerId,action,payload={}) { return call('rpc/prologue_action',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId,p_action:action,p_payload:payload})}); },
