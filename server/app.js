@@ -54,6 +54,7 @@ export function createApp({ config, repository, classifier = createClassifier({a
     next();
   });
   app.get('/api/me', (req, res) => res.json({ player: req.player }));
+  app.get('/api/achievements',async(req,res)=>{const result=await repository.achievements(req.player.id);res.status(result.error?409:200).json(result);});
   app.get('/api/support', (req,res)=>res.json({account:config.supportIgAccount||null,text:config.supportContactText||'請用 IG 搜尋此帳號，私訊聯絡我'}));
   app.get('/api/story-records',async(req,res)=>{const result=await repository.storyArchive(req.player.id);res.status(result.error?409:200).json(result);});
   app.get('/api/prologue',async(req,res)=>{const result=await repository.prologueAction(req.player.id,'get');res.status(result.error?409:200).json(result);});
@@ -166,7 +167,7 @@ export function createApp({ config, repository, classifier = createClassifier({a
       if(action==='answer'&&(typeof body.answer!=='string'||!/^[0-9]{1,2}$/.test(body.answer)))throw new InputError('請只輸入數字樓層。');
       const result=await repository.game9Action(req.player.id,action,body);return res.status(result.error?409:200).json(result);
     }
-    if (body.checkpoint === 3 && repository.game3Action && ['choose','complete','finish'].includes(action)) {const result=await repository.game3Action(req.player.id,action,body);return res.status(result.error?409:200).json(result);}
+    if (body.checkpoint === 3 && repository.game3Action && ['choose','complete','finish'].includes(action)) {if(action==='complete'&&body.shots!==undefined&&(!Number.isInteger(body.shots)||body.shots<1||body.shots>100000))throw new InputError('彈射次數格式錯誤。');const result=await repository.game3Action(req.player.id,action,body);return res.status(result.error?409:200).json(result);}
     if (body.checkpoint === 13 && repository.game13Action && ['choose','puzzle','guess','finish'].includes(action)) {
       if (action === 'guess' && (typeof body.guess !== 'string' || body.guess.length > 100)) throw new InputError('請輸入建築名稱。');
       const result=await repository.game13Action(req.player.id,action,body); return res.status(result.error?409:200).json(result);

@@ -22,6 +22,7 @@ export function createRepository(config, request = fetch) {
   const query = (table, parameters) => `${table}?${new URLSearchParams(parameters)}`;
 
   return {
+    async achievements(playerId){return call('rpc/get_achievements',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})});},
     async prologueAction(playerId,action,payload={}) { return call('rpc/prologue_action',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId,p_action:action,p_payload:payload})}); },
     async storyArchive(playerId) { return call('rpc/story_archive',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})}); },
     async followGame(playerId,checkpoint=0){return call('rpc/team_game_action',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId,p_checkpoint:checkpoint,p_action:'get',p_payload:{follow:true}})});},

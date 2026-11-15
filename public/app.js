@@ -1,3 +1,4 @@
+import {startAchievements} from './achievements.js';
 import { createApi, createProgressStore } from './progress.js';
 import { startJourney, stopJourney, renderJourneyProgress } from './journey.js';
 import { startCheckpoint, protectExternalScan } from './checkpoint.js';
@@ -65,6 +66,7 @@ function enterHome(player, progress) {
   startCheckpoint(api, player);
   startJourneyLibrary(api,player);
   startPrologue(api,player);
+  startAchievements(api,player);
 }
 
 async function restore() {

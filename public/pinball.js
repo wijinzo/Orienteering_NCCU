@@ -38,7 +38,7 @@ export function mountPinball(container,{load,save,complete,choice}){
  const persist=()=>save({hp:enemies.map(e=>e.hp),shots,effectApplied:true,boostAvailable});
  const cleared=()=>enemies.every(e=>e.hp===0);
  const updateUi=()=>{status.textContent=cleared()?'奶蛙都清完了！':`第 ${Math.floor(shots/3)+1} 輪 · 本輪剩餘 ${3-shots%3} 次發射`;bonus.textContent=choice==='care'?'奶蛋的威壓：全體奶蛙已減少 1 點生命':boostAvailable?'奶蛋生氣了！下一次彈射傷害 ×2':active&&shotDamage===2?'憤怒彈射！本次傷害 ×2':'憤怒加成已使用';launch.disabled=active||cleared();recall.disabled=!active;slider.disabled=active||cleared();};
- const report=()=>{if(submitted)return;submitted=true;retry.hidden=true;Promise.resolve().then(complete).catch(()=>{submitted=false;if(root.isConnected){retry.hidden=false;status.textContent='完成記錄尚未送出，請重試。';}});};
+ const report=()=>{if(submitted)return;submitted=true;retry.hidden=true;Promise.resolve().then(()=>complete({shots})).catch(()=>{submitted=false;if(root.isConnected){retry.hidden=false;status.textContent='完成記錄尚未送出，請重試。';}});};
  const finish=()=>{active=false;drag=null;pull={x:0,y:0};ball={...origin,vx:0,vy:0};persist();updateUi();if(cleared())report();};
  const fire=()=>{if(active||cleared())return;const shot=startPinballShot({shots,boostAvailable});shots=shot.shots;boostAvailable=shot.boostAvailable;shotDamage=shot.damage;active=true;elapsed=0;combo=0;trail=[];pull={x:0,y:0};ball={...origin,vx:Math.sin(angle)*820,vy:-Math.cos(angle)*820};persist();updateUi();};
  launch.onclick=fire;recall.onclick=finish;retry.onclick=report;slider.oninput=()=>{angle=Number(slider.value)*Math.PI/180;};

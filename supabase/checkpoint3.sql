@@ -1,6 +1,7 @@
 begin;
 create table if not exists public.checkpoint3_runs(id uuid primary key default gen_random_uuid(),team_id uuid not null unique references public.teams(id),phase text not null default 'story',choice text);
 create table if not exists public.checkpoint3_players(run_id uuid references public.checkpoint3_runs(id),player_id uuid references public.players(id),done boolean not null default false,primary key(run_id,player_id));
+alter table public.checkpoint3_players add column if not exists shots integer check(shots between 1 and 100000);
 alter table public.checkpoint3_runs enable row level security;
 alter table public.checkpoint3_players enable row level security;
 revoke all on public.checkpoint3_runs,public.checkpoint3_players from public,anon,authenticated;
@@ -34,7 +35,8 @@ begin
  elsif p_action='complete' then
   if r.phase not in ('play','success','finished') then return jsonb_build_object('error','挑戰尚未開始。','code','INVALID_PHASE');end if;
   if not exists(select 1 from public.checkpoint3_players where run_id=r.id and player_id=p_player) then return jsonb_build_object('error','你不在本輪名單中，請協助隊員完成。','code','NOT_PARTICIPANT');end if;
-  update public.checkpoint3_players set done=true where run_id=r.id and player_id=p_player;
+  if p_payload ? 'shots' and (jsonb_typeof(p_payload->'shots')<>'number' or (p_payload->>'shots') !~ '^[0-9]{1,6}$' or (p_payload->>'shots')::integer not between 1 and 100000) then return jsonb_build_object('error','彈射次數格式錯誤。','code','INVALID_SHOTS');end if;
+  update public.checkpoint3_players set done=true,shots=(p_payload->>'shots')::integer where run_id=r.id and player_id=p_player and not done;
   if r.phase='play' and not exists(select 1 from public.checkpoint3_players where run_id=r.id and not done) then update public.checkpoint3_runs set phase='success' where id=r.id returning * into r;end if;
  elsif p_action='finish' then
   if t.state->>'leader_id'<>p_player::text then return jsonb_build_object('error','請等待隊長完成劇情。','code','LEADER_REQUIRED');end if;
