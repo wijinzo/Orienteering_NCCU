@@ -211,6 +211,11 @@ export function createApp({ config, repository, classifier = createClassifier({a
     res.status(result.error ? 409 : 200).json(result);
   });
   app.get('/api/team', async (req, res) => res.json(await repository.teamAction(req.player.id, 'get')));
+  app.post('/api/team/leave',async(req,res)=>{
+    if(req.body?.confirm!==true||Object.keys(req.body).some(key=>key!=='confirm'))throw new InputError('請先確認要離開目前隊伍。');
+    const result=await repository.leaveTeam(req.player.id);
+    res.status(result.error?409:200).json(result);
+  });
   app.post('/api/team/:action', async (req, res) => {
     if (!['name', 'ready', 'vote'].includes(req.params.action)) return res.status(404).json({ error: '找不到此操作。' });
     const body = req.body;

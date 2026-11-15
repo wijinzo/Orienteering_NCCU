@@ -98,6 +98,7 @@ function renderTeam() {
         state.textContent = team.phase === 'lobby' ? (member.ready ? '已準備' : '等待準備') : member.id === team.leader_id ? '隊長' : team.phase === 'voting' ? (team.electors.includes(member.id) ? team.voted_ids.includes(member.id) ? '已投票' : '待投票' : '下輪旅程加入') : '隊員'; li.append(name, state); return li;
     }));
     for (const [phase, id] of [['lobby', 'lobby-controls'], ['voting', 'voting-controls'], ['elected', 'elected-controls']]) $(id).hidden = team.phase !== phase;
+    $('leave-team-button').hidden=!['lobby','voting'].includes(team.phase);
     if (team.phase === 'lobby') {
         const me = team.members.find(m => m.id === player.id);
         if ($('adventurer-name').dataset.player !== player.id) { $('adventurer-name').value = me?.name ?? ''; $('adventurer-name').dataset.player = player.id; }
@@ -107,7 +108,7 @@ function renderTeam() {
         $('ready-button').textContent = team.members.find(m => m.id === player.id)?.ready ? '取消準備' : '準備出發';
     }
     if (team.phase === 'voting') {
-        $('vote-heading').textContent = team.round > 1 ? `第 ${team.round} 輪 · 最高票平手，請再投一次` : '選出這趟旅程的隊長';
+        $('vote-heading').textContent = team.round > 1 ? `第 ${team.round} 輪 · 請重新選出隊長` : '選出這趟旅程的隊長';
         $('vote-count').textContent = `已投票 ${team.voted_count}／${team.electors.length} 人`;
         const canVote = team.electors.includes(player.id) && !team.voted_ids.includes(player.id);
         $('vote-form').hidden = !canVote; $('vote-wait').hidden = canVote;

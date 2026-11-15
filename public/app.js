@@ -1,4 +1,4 @@
-import {checkpointFromLocation} from './routing.js';
+import {checkpointFromLocation,homeUrl} from './routing.js';
 import {startAchievements} from './achievements.js';
 import { createApi, createProgressStore } from './progress.js';
 import { startJourney, stopJourney, renderJourneyProgress } from './journey.js';
@@ -119,6 +119,19 @@ function logout() {
   if (store?.hasUnsavedChanges() && !confirm('還有尚未保存的進度。確定要登出並捨棄這些變更嗎？')) return;
   loginScreen();
 }
+let leavingTeam=false;
+$('leave-team-button').addEventListener('click',async()=>{
+  if(leavingTeam||!confirm('確定要離開目前隊伍並重新選組嗎？你的名字與編號會移除。若正在選隊長，其他隊員需要重新投票。'))return;
+  leavingTeam=true;const button=$('leave-team-button');button.disabled=true;
+  errorText('team-error','');
+  try{
+    await api('/api/team/leave',{method:'POST',body:{confirm:true},waitLabel:'正在離開隊伍…'});
+    history.replaceState({},'',homeUrl());loginScreen('已離開原隊伍，請重新選擇正確組別。');
+  }catch(error){
+    if(error.code==='AUTH_INVALID'){history.replaceState({},'',homeUrl());loginScreen('目前身分已失效，請重新選擇組別。');}
+    else errorText('team-error',error.message);
+  }finally{leavingTeam=false;button.disabled=false;}
+});
 $('logout-button').addEventListener('click', logout);
 $('choose-team-again').addEventListener('click', logout);
 $('recovery-logout').addEventListener('click', logout);
