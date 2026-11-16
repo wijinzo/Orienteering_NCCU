@@ -7,6 +7,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { InputError, parseRegistration, parseProgress } from './validation.js';
 import { StorageError } from './repository.js';
 import { createClassifier, AiError, isCorrectGuess } from './checkpoint2-ai.js';
+import {createAdminRouter} from './admin.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -34,6 +35,7 @@ export function createApp({ config, repository, classifier = createClassifier({a
   });
   app.use('/api', express.json({ limit: '32kb' }));
   app.get('/api/health', (req, res) => res.json({ ok: true }));
+  app.use('/api/admin',createAdminRouter(config,repository));
 
   app.post('/api/auth/login', async (req, res) => {
     const input = parseRegistration(req.body);

@@ -22,6 +22,9 @@ export function createRepository(config, request = fetch) {
   const query = (table, parameters) => `${table}?${new URLSearchParams(parameters)}`;
 
   return {
+    async adminOverview(offset=0){return call('rpc/admin_overview',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_offset:offset})});},
+    async adminLogs(offset=0){return call('rpc/admin_logs',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_offset:offset})});},
+    async adminAction(actor,request,action,team,payload){return call('rpc/admin_game_action',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_actor:actor,p_request:request,p_action:action,p_team:team,p_payload:payload})});},
     async registerSolo(deviceHash,name){return call('rpc/register_solo_player',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_device_hash:deviceHash,p_name:name})});},
     async leaveTeam(playerId){return call('rpc/leave_team',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})});},
     async achievements(playerId){return call('rpc/get_achievements',{method:'POST',body:JSON.stringify({p_activity:config.activityId,p_player:playerId})});},

@@ -21,5 +21,6 @@ export function readConfig(env = process.env) {
     ttlDays, port, supabaseUrl: url.origin, supabaseKey: env.SUPABASE_SECRET_KEY,frontendOrigins,
     openaiApiKey: env.OPENAI_API_KEY?.trim(), openaiModel: env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
     supportIgAccount: env.SUPPORT_IG_ACCOUNT?.trim(), supportContactText: env.SUPPORT_CONTACT_TEXT?.trim(),
+    adminPassword:env.ADMIN_PASSWORD,
   };
 }

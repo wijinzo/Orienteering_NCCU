@@ -3,6 +3,7 @@ import {startMemories,stopMemories,createMemoryCenter} from './memories.js';
 import {MEMORY_PARTS} from './memory-data.js';
 import {isSoloTeam,teamDisplayName} from './play-mode.js';
 let finalSelected=false,memorySummary=null,foregroundTeamPending=false;
+let lastTeamRead=0;
 const $ = id => document.getElementById(id);
 const branches = [
     { roman: 'I', start: 1, end: 11, detour: 8 },
@@ -126,7 +127,8 @@ function renderTeam() {
 async function refresh(force=false) {
     if (!player || document.hidden) return;
     if(busy){if(force)foregroundTeamPending=true;return;}
-    if (!force && team?.phase === 'elected' && document.querySelector('.app-shell').dataset.page !== 'team') return;
+    if (!force && team?.phase === 'elected' && document.querySelector('.app-shell').dataset.page !== 'team'&&Date.now()-lastTeamRead<15000) return;
+    lastTeamRead=Date.now();
     const attempt = version, request = ++requestVersion;
     try { const result = await api('/api/team',{wait:force||!$('team-loading').hidden,waitLabel:'正在接回隊伍狀態…'}); if (attempt !== version || request !== requestVersion) return; team = result.team; message(''); renderTeam(); }
     catch (error) { if (attempt === version) { $('team-loading').hidden = true; message(error.message); } }
