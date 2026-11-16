@@ -95,7 +95,7 @@ function render(){
  renderContent();
  const controls=$('game-body').querySelector('.story-controls'),atOptions=controls?.querySelectorAll('button:not(.story-next)').length>1;
  if(atOptions&&visible){
-  if(introUnread(run())){controls.replaceChildren(next(()=>{write('intro-options-seen','1');viewKey='';render();}));}
+  if(introUnread(run())){controls.replaceChildren(next(()=>{write('intro-options-seen','1');viewKey='';render();}));controls.closest('.story-paper').classList.add('story-paper-advance');}
   else if(run()?.phase==='story')write('intro-options-seen','1');
  }
  renderStoryVote({run:run(),visible:visible&&$('scanner-view').hidden,inFlight,leader:isLeader(),solo:isSoloTeam(team),serverNow:now(),submit:(action,choice)=>transact(action,{run_id:run().id,choice},isSoloTeam(team)?'正在確認你的選擇…':'正在確認大家的選擇…').catch(()=>{})});

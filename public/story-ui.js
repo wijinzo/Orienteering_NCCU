@@ -22,13 +22,14 @@ export function renderStoryScene(container, { text, actions = [], character = 'å
   const paper = storyNode('div', undefined, 'story-paper');
   paper.append(storyNode('span', character, 'speaker'), storyNode('p', text, 'story-copy'));
   const controls = storyNode('div', undefined, 'story-controls'); controls.append(...actions); paper.append(controls);
-  const advance = actions.length === 1 && actions[0].classList.contains('story-next') ? actions[0] : null;
-  if (advance) {
-    paper.classList.add('story-paper-advance');
-    paper.addEventListener('click', event => {
-      if (event.target.closest('button, input, a, select, textarea') || advance.disabled) return;
-      advance.click();
-    });
-  }
+  if (actions.length === 1 && actions[0].classList.contains('story-next')) paper.classList.add('story-paper-advance');
+  // Options can be replaced with a next prompt after rendering (e.g. a late reader).
+  // Resolve the live controls so the whole dialogue still advances in that case.
+  paper.addEventListener('click', event => {
+    if (event.target.closest('button, input, a, select, textarea')) return;
+    const currentActions = [...controls.children];
+    const advance = currentActions.length === 1 && currentActions[0].classList.contains('story-next') ? currentActions[0] : null;
+    if (advance && !advance.disabled) advance.click();
+  });
   container.append(actor, paper);
 }
