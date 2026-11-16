@@ -108,7 +108,7 @@ export function createApp({ config, repository, classifier = createClassifier({a
   });
   app.post('/api/game/:action', async (req, res) => {
     const action = req.params.action, body = req.body;
-    if (!['enter', 'ready', 'choose', 'answer', 'finish', 'find', 'ask', 'guess', 'puzzle', 'complete', 'reflect', 'read', 'note', 'letter'].includes(action)) return res.status(404).json({ error: '找不到此操作。' });
+    if (!['enter', 'ready', 'choose', 'answer', 'finish', 'find', 'ask', 'guess', 'puzzle', 'complete', 'reflect', 'read', 'note', 'letter','handoff_request','handoff_confirm','handoff_cancel'].includes(action)) return res.status(404).json({ error: '找不到此操作。' });
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new InputError('操作資料格式錯誤。');
     if (action === 'enter') {
       if ('checkpoint' in body && (!Number.isInteger(body.checkpoint) || body.checkpoint<1 || body.checkpoint>13)) throw new InputError('地點格式錯誤。');
@@ -199,7 +199,12 @@ export function createApp({ config, repository, classifier = createClassifier({a
       }
       const result=await repository.game2Action(req.player.id,action,body);return res.status(result.error?409:200).json(result);
     }
-    if (body.checkpoint === 11 && ['choose', 'find', 'finish'].includes(action)) {
+    if(action.startsWith('handoff_')){
+      if(body.checkpoint!==11)throw new InputError('照片接手僅適用於地點 11。');
+      if(action==='handoff_request'&&(!Number.isInteger(body.photo)||body.photo<1||body.photo>6||!uuid.test(body.to_player??'')))throw new InputError('請選擇照片和接手隊員。');
+      if(action!=='handoff_request'&&!uuid.test(body.handoff_id??''))throw new InputError('請重新讀取接手申請。');
+    }
+    if (body.checkpoint === 11 && ['choose', 'find', 'finish','handoff_request','handoff_confirm','handoff_cancel'].includes(action)) {
       if (action === 'choose' && !['question','promise'].includes(body.choice)) throw new InputError('請選擇有效選項。');
       if (action === 'find' && (!Number.isInteger(body.photo) || body.photo<1 || body.photo>6 || !Number.isFinite(body.x) || !Number.isFinite(body.y) || body.x<0 || body.x>1 || body.y<0 || body.y>1)) throw new InputError('點擊位置不正確。');
       const result = await repository.game11Action(req.player.id, action, body);

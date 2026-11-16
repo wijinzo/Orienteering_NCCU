@@ -119,3 +119,4 @@ body.checkpoint-open{overflow:hidden}
 .story-vote-leader-hint{font-size:13px;line-height:1.6;padding:9px 12px;margin:8px 0;background:#f2e6cc;color:#695127;border:1px solid #d8c49c;border-radius:12px}
 
 .team-picker .solo-option{grid-column:1/-1}.solo-option span{font-size:14px;border-color:var(--gold)}#solo-name-fields>label{display:block;margin:12px 0 8px}
+.team-recovery{width:100%;margin-top:10px;padding:0 12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;color:var(--ink)}.team-recovery summary{font-weight:600}.recovery-form{display:grid;gap:8px;margin:12px 0}.recovery-form select{font:inherit;width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);padding:8px}.recovery-record{border-top:1px solid var(--line);padding:8px 0}.recovery-record p{font-size:14px;overflow-wrap:anywhere}.recovery-record small{display:block}

@@ -1,5 +1,6 @@
 import {checkpointFromLocation,checkpointUrl,homeUrl,APP_BASE_PATH} from './routing.js';
 import {isSoloTeam} from './play-mode.js';
+import {mountPhotoRecovery,updateRecoveryClocks,pinballWaitText} from './team-recovery.js';
 import {STORY_INTRO,STORY_END,storyReply,PINBALL_REPLIES} from './story-data.js';
 import {createResumeSync} from './resume-sync.js';
 import {beginNetworkWait,showResumeError,clearResumeError} from './network-wait.js';
@@ -14,6 +15,7 @@ import { mountTimeline } from './timeline.js';
 import { FINALE_PAGES, REFLECTIONS, paginateText } from './finale-data.js';
 const $ = id => document.getElementById(id);
 let resumeSync=null,mutationEpoch=0,mutationController=null;
+let recoveryRefreshKey='';
 let pendingAction=null,detourView=null,detourId=null,ballotRefreshId=null;
 let api, player, team, state=null, timer=null, ticker=null, alive=0, requestId=0, inFlight=false, visible=false, dismissed=null, viewKey='', cursor=0, draft='', stream=null, scanTimer=null, cameraEpoch=0, clockAnchor=0, performanceAnchor=0, acknowledged=null, retryAction=null;
 const staleAction=()=>Object.assign(new Error('已切換到隊伍的新地點。'),{code:'STALE_ACTION'});
@@ -77,6 +79,10 @@ function interval(){if(run()?.vote_slot||run()?.ballot)return 1000;const phase=r
 async function poll(){const expected=alive;await refresh();if(expected===alive&&player)timer=setTimeout(poll,interval());}
 function countdown(){
  const r=run();if(!r)return;updateVoteCountdown(r.ballot,now());
+ updateRecoveryClocks($('game-body'),r,now());
+ const recoveryDeadline=r.checkpoint===3&&r.phase==='play'?r.skip_at:r.checkpoint===11&&r.phase==='search'&&!r.recovery?.available?r.recovery?.available_at:null;
+ const recoveryKey=r.id+':'+recoveryDeadline;
+ if(visible&&!document.hidden&&!inFlight&&recoveryDeadline&&now()>=Date.parse(recoveryDeadline)&&recoveryRefreshKey!==recoveryKey){recoveryRefreshKey=recoveryKey;refresh(true).catch(()=>{});}
  if(visible&&!document.hidden&&!inFlight&&r.ballot?.phase==='open'&&now()>=Date.parse(r.ballot.deadline)&&ballotRefreshId!==r.ballot.id){ballotRefreshId=r.ballot.id;refresh(true);}
  if(introUnread(r))return;
  const clock=$('quiz-clock');if(clock&&r.deadline){const seconds=remainingSeconds(r.deadline,now());clock.textContent=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;clock.dataset.urgent=seconds<=10;}
@@ -99,7 +105,7 @@ function renderContent(){
  const source=run(),r=introUnread(source)?{...source,phase:'story'}:source;if(!r){$('game-body').replaceChildren(node('p','正在確認地點…','loading-copy'));return;}
  const phase=r.phase==='running'?(now()<Date.parse(r.starts_at)?'countdown':now()<Date.parse(r.deadline)?'quiz':'settling'):r.phase;
  const answering=phase==='quiz'&&!r.submitted&&r.participant;
- const key=[r.id,phase,cursor,r.choice,answering?'':r.ready_count,answering?'':r.submitted_count,r.submitted,r.my_photo,r.found_count,r.messages?.length,r.guesses?.length,r.ending_choice,r.reflection,r.my_read,r.note_saved_at,r.letter_saved_at,r.done,r.participant,isLeader()].join(':');
+ const key=[r.id,phase,cursor,r.choice,answering?'':r.ready_count,answering?'':r.submitted_count,r.submitted,r.my_photo,r.found_count,r.messages?.length,r.guesses?.length,r.ending_choice,r.reflection,r.my_read,r.note_saved_at,r.letter_saved_at,r.done,r.skipped,r.participant,isLeader(),r.checkpoint===11?JSON.stringify(r.recovery):''].join(':');
  $('checkpoint-overlay').dataset.checkpoint=String(r.checkpoint);
  if([6,8].includes(r.checkpoint)){renderDetour(r);return;}
  if(detourView){detourView.dispose();detourView=null;detourId=null;viewKey='';}
@@ -387,6 +393,7 @@ function render3(r,key){
  $('game-path').replaceChildren(node('span','地點'),node('span','3','checkpoint-number'));
  if(r.phase==='finished')$('game-path').append(node('span','→','checkpoint-arrow'),node('span','9','checkpoint-number'));
  const waiting=$('pinball-wait');if(waiting)waiting.textContent=`全隊完成 ${r.completed_count}／${r.total} 人`;
+ updateRecoveryClocks($('game-body'),r,now());
  if(key===viewKey)return;viewKey=key;const body=$('game-body');body.className='game-body';body.dataset.phase=r.phase;body.replaceChildren();
  const pages=STORY_INTRO[3];
  const say=(who,text,actions=[])=>renderStoryScene(body,{character:who,text,actions,image:who==='奶蛋'?'/assets/characters/naiegg.png':who==='奶蛙們'?'/assets/characters/naifrog.png':'/assets/characters/nailong.png'});
@@ -394,11 +401,12 @@ function render3(r,key){
   const page=Math.min(cursor,pages.length);if(page<pages.length){say(...pages[page],[next(()=>{cursor++;write('cursor',cursor);viewKey='';render();})]);}
   else{const options=[button('真的要把奶蛋彈出去嗎？',()=>transact('choose',{run_id:r.id,choice:'egg'},'正在開始挑戰…').catch(()=>{})),button('奶蛋，你還好嗎？',()=>transact('choose',{run_id:r.id,choice:'care'},'正在開始挑戰…').catch(()=>{}))];say('奶龍','準備好一起清出道路了嗎？',options);}
  }else if(r.phase==='play'){
-  if(!r.participant||r.done){scene(r.done?'你已清完奶蛙，等待隊友完成！':'本輪挑戰已開始，請協助隊友完成。');const note=node('p',`全隊完成 ${r.completed_count}／${r.total} 人`,'stage-note');note.id='pinball-wait';body.append(note);return;}
+  if(!r.participant||r.done){scene(r.done?'你已清完奶蛙，等待隊友完成！':'本輪挑戰已開始，請協助隊友完成。');const note=node('p',`全隊完成 ${r.completed_count}／${r.total} 人`,'stage-note');note.id='pinball-wait';const clock=node('p',pinballWaitText(r,now()),'stage-note');clock.dataset.pinballWait='true';body.append(note,clock);return;}
   if(read('pinball-reply','0')!=='1'){const lines=PINBALL_REPLIES[r.choice==='egg'?'egg':'care'];const page=Math.min(Number(read('pinball-reply-page','0')),lines.length-1);say(...lines[page],[next(()=>{if(page===lines.length-1)write('pinball-reply','1');else write('pinball-reply-page',page+1);viewKey='';render();})]);return;}
   body.classList.add('pinball-body');mountPinball(body,{choice:r.choice,load:()=>{try{return JSON.parse(read('pinball-state','null'));}catch{return null;}},save:value=>write('pinball-state',JSON.stringify(value)),complete:async({shots})=>{const result=await transact('complete',{run_id:r.id,shots},'正在記錄你的完成狀態…');if(!result)throw new Error('尚未送出');}});
+  const clock=node('p',pinballWaitText(r,now()),'stage-note');clock.dataset.pinballWait='true';body.append(clock);
  }else if(r.phase==='success'||r.phase==='finished'){
-  const lines=STORY_END[3];const page=Math.min(Number(read('success-page','0')),lines.length-1),last=page===lines.length-1;const control=next(()=>{if(!last){write('success-page',page+1);viewKey='';render();}else if(r.phase==='finished')closeOverlay();else transact('finish',{run_id:r.id},'正在更新隊伍進度…').then(()=>closeOverlay()).catch(()=>{});});if(last&&r.phase!=='finished'&&!isLeader())control.disabled=true;say(...lines[page],[control]);
+  const lines=STORY_END[3];const page=Math.min(Number(read('success-page','0')),lines.length-1),last=page===lines.length-1;const control=next(()=>{if(!last){write('success-page',page+1);viewKey='';render();}else if(r.phase==='finished')closeOverlay();else transact('finish',{run_id:r.id},'正在更新隊伍進度…').then(()=>closeOverlay()).catch(()=>{});});if(last&&r.phase!=='finished'&&!isLeader())control.disabled=true;say(...lines[page],[control]);if(r.skipped_count)body.append(node('p',pinballWaitText(r,now()),'notice'));
  }
 }
 function render13(r,key){
@@ -474,6 +482,7 @@ function render11(r,key){
    image.onclick=event=>{if(inFlight)return;const bounds=image.getBoundingClientRect();const x=(event.clientX-bounds.left)/bounds.width,y=(event.clientY-bounds.top)/bounds.height;transact('find',{run_id:r.id,photo:r.my_photo,x,y},'正在記錄找到的奶蛙…').catch(()=>{});};
    body.append(image,node('p','找到後會自動分配下一張尚未分配的照片。','stage-note'));
   }else scene(r.participant?'你分到的照片都找完了，等隊友一起完成！':'這輪已開始，請一起觀看隊伍進度。');
+  mountPhotoRecovery(body,{run:r,team,player,leader:isLeader(),busy:inFlight,now:now(),submit:(action,payload)=>transact(action,{run_id:r.id,...payload},'正在確認照片接手安排…').catch(()=>{})});
  }else if(r.phase==='success'||r.phase==='finished'){
   const pages=STORY_END[11];
   const rawPage=Number(read('success-page','0'));
