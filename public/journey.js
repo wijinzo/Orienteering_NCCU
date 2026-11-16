@@ -81,7 +81,8 @@ function renderFlower() {
 function message(text) { $('team-error').textContent = text; $('team-error').hidden = !text; }
 function renderTeam() {
     const wasUnlocked = unlocked;
-    unlocked = team?.phase === 'elected';
+    const me=team?.members.find(member=>member.id===player?.id),needsName=!!team&&!me?.name?.trim();
+    unlocked = team?.phase === 'elected'&&!needsName;
     $('home-view').dataset.stage = unlocked ? 'exploring' : 'waiting';
     if (!unlocked) selectTab('team');
     else if (!wasUnlocked) { selectTab('explore'); window.scrollTo(0, 0); }
@@ -90,23 +91,26 @@ function renderTeam() {
     $('team-label').textContent = teamDisplayName(team); $('role-label').textContent = solo?'冒險者':team?.leader_id === player?.id ? '隊長' : team ? '隊員' : '探路者';
     $('adventurer-label').textContent = team?.members.find(member => member.id === player?.id)?.name || '冒險者';
     renderFlower(); if (!team) return;
-    window.dispatchEvent(new CustomEvent('team-state', { detail: team }));
+    if(!needsName)window.dispatchEvent(new CustomEvent('team-state', { detail: team }));
     $('player-label').textContent=solo?player.player_code.slice(0,8):player.player_code;
     $('team-name').textContent = solo?'你的個人進度會獨立保存':`${teamDisplayName(team)} · 你的編號 ${player.player_code}`;
-    $('team-page-title').textContent = solo?'我的個人冒險':team.phase === 'lobby' ? '等待夥伴集合' : team.phase === 'voting' ? '選出我們的隊長' : '我們的隊伍';
-    $('team-page-description').textContent = solo?'這段旅程由你決定，進度與正式隊伍分開保存。':team.phase === 'lobby' ? '填好冒險者名字，確認本次參與的隊員都到齊了，再準備出發。' : team.phase === 'voting' ? '全員投完並選出隊長後，將自動進入探索首頁。' : '和夥伴一起，找回校園裡的記憶。';
+    $('team-page-title').textContent = needsName&&team.phase!=='lobby'?'設定冒險者名字':solo?'我的個人冒險':team.phase === 'lobby' ? '等待夥伴集合' : team.phase === 'voting' ? '選出我們的隊長' : '我們的隊伍';
+    $('team-page-description').textContent = needsName&&team.phase!=='lobby'?'你已加入隊伍，先填寫名字，再接續目前的遊戲進度。':solo?'這段旅程由你決定，進度與正式隊伍分開保存。':team.phase === 'lobby' ? '填好冒險者名字，確認本次參與的隊員都到齊了，再準備出發。' : team.phase === 'voting' ? '全員投完並選出隊長後，將自動進入探索首頁。' : '和夥伴一起，找回校園裡的記憶。';
     $('team-phase').textContent = solo?'個人模式':{ lobby: '集合中', voting: '隊長投票', elected: '已選出隊長' }[team.phase];
     $('member-list').replaceChildren(...team.members.map(member => {
         const li = document.createElement('li'), name = document.createElement('span'), state = document.createElement('span'); name.textContent = `${member.name || '尚未填寫名字'}${member.id === player.id ? '（你）' : ''}`;
         const code = document.createElement('small'); code.textContent = `編號 ${member.code}`; name.append(code);
         state.textContent = solo?'冒險者':team.phase === 'lobby' ? (member.ready ? '已準備' : '等待準備') : member.id === team.leader_id ? '隊長' : team.phase === 'voting' ? (team.electors.includes(member.id) ? team.voted_ids.includes(member.id) ? '已投票' : '待投票' : '下輪旅程加入') : '隊員'; li.append(name, state); return li;
     }));
-    for (const [phase, id] of [['lobby', 'lobby-controls'], ['voting', 'voting-controls'], ['elected', 'elected-controls']]) $(id).hidden = team.phase !== phase;
+    for (const [phase, id] of [['lobby', 'lobby-controls'], ['voting', 'voting-controls'], ['elected', 'elected-controls']]) $(id).hidden = team.phase !== phase||needsName&&phase!=='lobby';
+    $('name-form').hidden=team.phase!=='lobby'&&!needsName;
+    if(team.phase==='lobby'||needsName){
+        if ($('adventurer-name').dataset.player !== player.id) { $('adventurer-name').value = me?.name ?? ''; $('adventurer-name').dataset.player = player.id; }
+        $('name-status').textContent=me?.name?`已儲存：${me.name}`:'請先設定你的冒險者名字。';
+        $('name-help').textContent=team.phase==='lobby'?'請輸入 1～20 字。儲存名字後，才能準備出發。':'請輸入 1～20 字。儲存後即可接續隊伍進度，不會重置關卡或投票。';
+    }
     $('leave-team-button').hidden=!['lobby','voting'].includes(team.phase);
     if (team.phase === 'lobby') {
-        const me = team.members.find(m => m.id === player.id);
-        if ($('adventurer-name').dataset.player !== player.id) { $('adventurer-name').value = me?.name ?? ''; $('adventurer-name').dataset.player = player.id; }
-        $('name-status').textContent = me?.name ? `已儲存：${me.name}` : '請先設定你的冒險者名字。';
         $('ready-button').disabled = busy || !me?.name;
         $('ready-count').textContent = `已準備 ${team.members.filter(m => m.ready).length}／${team.members.length} 人`;
         $('ready-button').textContent = team.members.find(m => m.id === player.id)?.ready ? '取消準備' : '準備出發';

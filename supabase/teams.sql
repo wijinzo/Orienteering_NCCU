@@ -45,9 +45,9 @@ begin
  end if;
 
  if p_action='name' then
-   if s->>'phase'<>'lobby' then return jsonb_build_object('error','投票開始後不能修改名字。'); end if;
+   if s->>'phase'<>'lobby' and exists(select 1 from jsonb_array_elements(s->'members') where value->>'id'=p_player::text and length(trim(value->>'name'))>0) then return jsonb_build_object('error','投票開始後不能修改已儲存的名字。'); end if;
    if coalesce(length(trim(p_payload->>'name')),0) not between 1 and 20 then return jsonb_build_object('error','請輸入 1～20 字的冒險者名字。'); end if;
-   select jsonb_agg(case when value->>'id'=p_player::text then value || jsonb_build_object('name',trim(p_payload->>'name'),'ready',false) else value end) into members from jsonb_array_elements(s->'members');
+   select jsonb_agg(case when value->>'id'=p_player::text then value || jsonb_build_object('name',trim(p_payload->>'name')) || (case when s->>'phase'='lobby' then '{"ready":false}'::jsonb else '{}'::jsonb end) else value end) into members from jsonb_array_elements(s->'members');
    s:=jsonb_set(s,'{members}',members);
  elsif p_action='ready' then
    if s->>'phase'<>'lobby' then return jsonb_build_object('error','投票已開始，請更新隊伍狀態。'); end if;
