@@ -19,7 +19,7 @@ function shell(title,{keepAudio=false}={}){
 }
 function preload(){for(const src of SIGHTING_PHOTOS){const image=new Image();image.src=src;}}
 export function showSightingIntro(){
- if(!player)return;const body=shell('奶龍目擊情報');body.append(node('p','記憶之境 · 校園動態','sighting-eyebrow'),createPost());
+ if(!player)return;const body=shell('奶龍目擊情報');body.classList.add('is-intro');body.append(node('p','記憶之境 · 校園動態','sighting-eyebrow'),createPost());
  const replies=node('div',undefined,'sighting-replies');replies.append(createPost({compact:true,author:'校園散步中',caption:'我也看到了！牠是不是在找什麼東西？'}),createPost({compact:true,author:'另一位路過的人',caption:'先別滑走，照片裡真的有東西。'}));body.append(replies);
  const proceed=node('button','去看看牠在找什麼 →','sighting-primary');proceed.type='button';proceed.onclick=finishIntro;body.append(proceed);
 }

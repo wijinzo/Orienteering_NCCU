@@ -44,7 +44,7 @@ export function mountDetourCall(container,{run,leader,read,write,finish,leave,re
   mute=button('靜音',()=>{if(!audio)return;audio.muted=!audio.muted;mute.setAttribute('aria-pressed',String(audio.muted));mute.textContent=audio.muted?'開聲音':'靜音';playingLabel.textContent=audio.muted?'已靜音，點「開聲音」就能繼續聽。':'通話中 · 請確認手機媒體音量已開啟。';},'detour-mute');mute.hidden=stage==='incoming';mute.setAttribute('aria-pressed','false');
   const frame=node('div',undefined,'detour-phone-frame');frame.append(art,portrait('detour-phone-avatar'),info,playingLabel,clock,hang,resume,mute);root.append(frame);
   if(stage==='call'){
-   audio=new Audio('/assets/calls/nailong-call.mp3');audio.preload='auto';const current=audio;
+   audio=new Audio('/assets/calls/nailong-call.mp3?v=loudness-1');audio.preload='auto';const current=audio;
    current.onloadedmetadata=()=>{if(disposed||audio!==current)return;if(seconds>0&&seconds<current.duration)current.currentTime=seconds;else seconds=0;};
    current.onwaiting=()=>{if(!disposed&&audio===current)playingLabel.textContent='通話音樂緩衝中…';};
    current.onplaying=()=>{if(!disposed&&audio===current){playing=true;playingLabel.textContent='通話中';resume.hidden=true;}};

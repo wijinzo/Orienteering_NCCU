@@ -1,5 +1,5 @@
 export const CREDITS_MUSIC='https://www.youtube.com/watch?v=eZ4s8zc26nM';
-export const CREDITS_AUDIO='/assets/music/credits.m4a';
+export const CREDITS_AUDIO='/assets/music/credits.m4a?v=loudness-1';
 export const CREDITS_SIGNATURE='製作｜第七組、第十組';
 export const CREDITS_EPILOGUE=[
  '只要有人還記得，這段歷史就不會消失。',
