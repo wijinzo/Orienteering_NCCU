@@ -51,8 +51,8 @@ function renderOverview(){
  $('solo-total').textContent=`共 ${data.solo_total} 人 · 本頁 ${data.solo.length} 人`;$('solo-prev').disabled=soloOffset===0;$('solo-next').disabled=soloOffset+data.solo.length>=data.solo_total;
 }
 function logRow(entry,compact=false){
- const row=node('article',undefined,'audit-row'),head=node('header');head.append(node('strong',`第 ${Number(entry.team_code)} 組 · ${entry.action==='leader'?'更換隊長':'重設隊伍'}`),node('time',date(entry.created_at)));row.append(head);
- if(!compact){row.append(node('p',entry.actor,'muted'),node('p','原因：'+entry.reason,'reason'));if(entry.action==='leader')row.append(node('p',`${entry.result.old_leader_name||'尚未選出'} → ${entry.result.leader_name}；重新開始 ${entry.result.restarted_ballots} 筆未結算投票。`,'muted'));else row.append(node('p',`已重設 ${entry.result.reset_players} 位玩家的身分與進度。`,'muted'));}
+ const row=node('article',undefined,'audit-row'),head=node('header');head.append(node('strong',`第 ${Number(entry.team_code)} 組 · ${entry.action==='leader'?'更換隊長':entry.action==='pass'?'手動通過地點 '+entry.result.checkpoint:entry.action==='remove'?'移除隊員':'重設隊伍'}`),node('time',date(entry.created_at)));row.append(head);
+ if(!compact){row.append(node('p',entry.actor,'muted'),node('p','原因：'+entry.reason,'reason'));if(entry.action==='leader')row.append(node('p',`${entry.result.old_leader_name||'尚未選出'} → ${entry.result.leader_name}；重新開始 ${entry.result.restarted_ballots} 筆未結算投票。`,'muted'));else if(entry.action==='remove')row.append(node('p',`已移除 ${entry.result.player_name||entry.result.player_code}（${entry.result.player_code}），保留已提交成績，釋回 ${entry.result.released_photos} 張照片。`,'muted'));else if(entry.action==='pass')row.append(node('p',`地點 ${entry.result.checkpoint} · 原狀態：${phase(entry.result.previous_phase)}；已完成並開放後續進度。`,'muted'));else row.append(node('p',`已重設 ${entry.result.reset_players} 位玩家的身分與進度。`,'muted'));}
  return row;
 }
 function renderLogs(){
@@ -70,11 +70,26 @@ function openTeam(team){
  body.append(node('h3','隊員名單','detail-list-head'));const list=node('ul');
  for(const member of team.members){const item=node('li'),identity=node('div'),status=node('div');identity.append(node('strong',(member.name||'尚未填名字')+(member.id===team.leader_id?' · '+(team.mode==='solo'?'冒險者':'隊長'):'')),node('small',member.code));status.append(node('small',member.last_seen_at?'最近活動 '+date(member.last_seen_at):'尚未進入關卡'));if(member.waiting)status.append(node('span',member.waiting_reason||'此關尚未提交／完成','waiting-note'));item.append(identity,status);list.append(item);}body.append(list);
  if(team.mode==='solo'){body.append(node('p','個人模式不涉及隊長交接，此處僅供查看。','muted'));$('admin-detail').showModal();return;}
+ if(team.current_checkpoint&&team.current_run_id&&team.game_phase&&team.game_phase!=='finished'&&team.phase==='elected'){
+  const rescue=node('details',undefined,'danger-zone');rescue.append(node('summary','救援：手動通過目前地點 '+team.current_checkpoint));
+  const pass=node('form',undefined,'reset-form');pass.append(node('p',`第 ${Number(team.code)} 組 · 地點 ${team.current_checkpoint} · ${phase(team.game_phase)}。完成此地點並開放後續路線；不補發實際遊玩成績。${[1,4].includes(team.current_checkpoint)?'本關會走成功路線。':''}`));
+  const confirmCode=field(pass,'輸入兩位數組號 '+team.code+' 確認','admin-pass-confirm');confirmCode.maxLength=2;confirmCode.pattern=team.code;confirmCode.autocomplete='off';
+  const passReason=field(pass,'通過原因','admin-pass-reason');passReason.placeholder='例如：照片點擊異常，現場已確認完成';
+  const passButton=node('button','手動通過地點 '+team.current_checkpoint);passButton.type='submit';pass.append(passButton);
+  pass.onsubmit=event=>{event.preventDefault();if(confirm(`確認協助第 ${Number(team.code)} 組通過地點 ${team.current_checkpoint}？這會直接結束目前關卡並留下操作紀錄。`))send({action:'pass',team_id:team.id,checkpoint:team.current_checkpoint,run_id:team.current_run_id,confirm:confirmCode.value,reason:passReason.value.trim()});};rescue.append(pass);body.append(rescue);
+ }
  const form=node('form',undefined,'leader-form');form.append(node('h3',team.leader_id?'更換隊長':'指定隊長'));
  const pick=field(form,'新隊長','admin-new-leader','select');const empty=node('option','請選擇隊員');empty.value='';pick.append(empty);
  for(const member of team.members.filter(member=>member.name&&member.id!==team.leader_id)){const option=node('option',member.name+' · '+member.code);option.value=member.id;pick.append(option);}
  const reason=field(form,'操作原因','admin-leader-reason');reason.placeholder='例如：原隊長手機沒電';form.append(node('p','保留關卡進度；未結算的對話投票會重新開始。角色會自動更新，也可到隊伍頁立即更新；未送出的輸入需新隊長重新填寫。','muted'));
  const submit=node('button','確認更換隊長','primary');submit.type='submit';submit.disabled=pick.options.length===1;form.append(submit);form.onsubmit=event=>{event.preventDefault();const name=pick.selectedOptions[0].textContent;if(confirm(`確定將第 ${Number(team.code)} 組隊長改為「${name}」？未結算的對話投票將重新開始。`))send({action:'leader',team_id:team.id,leader_id:pick.value,expected_leader:team.leader_id??null,reason:reason.value.trim()});};body.append(form);
+ const removeZone=node('details',undefined,'danger-zone');removeZone.append(node('summary','移除隊員'));
+ const removeForm=node('form',undefined,'reset-form'),removePick=field(removeForm,'選擇要移除的隊員','admin-remove-member','select');const placeholder=node('option','請選擇隊員');placeholder.value='';removePick.append(placeholder);
+ for(const member of team.members.filter(member=>member.id!==team.leader_id)){const option=node('option',(member.name||'尚未填名字')+' · '+member.code);option.value=member.id;removePick.append(option);}
+ removeForm.append(node('p','保留已提交成績，原登入將失效；未完成的照片釋回分配，彈珠與投票不再等待他。隊長須先更換才能移除，最後一名隊員不能移除。','muted'));
+ const removeConfirm=field(removeForm,'輸入該隊員的完整玩家編號','admin-remove-confirm');removeConfirm.autocomplete='off';removeConfirm.placeholder='例如：07-003';
+ const removeReason=field(removeForm,'移除原因','admin-remove-reason');const removeButton=node('button','確認移除隊員');removeButton.type='submit';removeButton.disabled=removePick.options.length===1||team.members.length<=1;removeForm.append(removeButton);
+ removeForm.onsubmit=event=>{event.preventDefault();if(confirm(`確定將「${removePick.selectedOptions[0].textContent}」移出第 ${Number(team.code)} 組？原登入會失效，已提交的成績將保留。`))send({action:'remove',team_id:team.id,player_id:removePick.value,confirm:removeConfirm.value.trim(),reason:removeReason.value.trim()});};removeZone.append(removeForm);body.append(removeZone);
  const danger=node('details',undefined,'danger-zone');danger.append(node('summary','重設這一組的全部遊戲資料'));const reset=node('form',undefined,'reset-form');reset.append(node('p','這會清除本組玩家身分、進度、私人留言與回信，無法在後台復原；其他組不受影響。'));
  const confirmation=field(reset,`輸入兩位數組號 ${team.code} 確認`,'admin-reset-confirm');confirmation.maxLength=2;confirmation.pattern=team.code;confirmation.autocomplete='off';
  const resetReason=field(reset,'重設原因','admin-reset-reason');const resetSubmit=node('button','重設第 '+Number(team.code)+' 組');resetSubmit.type='submit';reset.append(resetSubmit);reset.onsubmit=event=>{event.preventDefault();if(confirm(`最後確認：清除第 ${Number(team.code)} 組的全部玩家資料與進度？`))send({action:'reset',team_id:team.id,confirm:confirmation.value,reason:resetReason.value.trim()});};danger.append(reset);body.append(danger);$('admin-detail').showModal();
@@ -85,7 +100,7 @@ async function send(body,retry=false){
  document.querySelectorAll('#admin-detail button,#admin-detail input,#admin-detail select,[data-view],#admin-logout').forEach(item=>item.disabled=true);
  try{
   const result=await api('/api/admin/action',{method:'POST',body:retryJob.body,timeoutMs:30000});if(version!==generation)return;
-  const action=retryJob.body.action;retryJob=null;$('admin-detail').close();text('admin-message',action==='reset'?`已重設第 ${Number(result.team_code)} 組。玩家需要重新選組登入。`:`已更新第 ${Number(result.team_code)} 組隊長；進行中的遊戲進度保留。`);
+  const action=retryJob.body.action;retryJob=null;$('admin-detail').close();text('admin-message',action==='remove'?`已將 ${result.player_name||result.player_code} 移出第 ${Number(result.team_code)} 組；原登入已失效，已提交成績保留。`:action==='pass'?`已協助第 ${Number(result.team_code)} 組通過地點 ${result.checkpoint}。隊員會於更新進度後收到結果。`:action==='reset'?`已重設第 ${Number(result.team_code)} 組。玩家需要重新選組登入。`:`已更新第 ${Number(result.team_code)} 組隊長；進行中的遊戲進度保留。`);
  }catch(e){if(version!==generation)return;error(e,'detail-error');if(token&&retryJob){$('admin-retry').hidden=false;$('admin-retry').textContent='重試原操作';}}
  finally{if(version===generation){mutating=false;wait(false);document.querySelectorAll('#admin-detail button,#admin-detail input,#admin-detail select,[data-view],#admin-logout').forEach(item=>item.disabled=false);schedule(true);}}
 }

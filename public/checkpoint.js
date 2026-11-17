@@ -51,7 +51,7 @@ function apply(result,requestStarted){
  $('resume-checkpoint').hidden=!run();
  if(run()&&(forceOpen||ballotOpens||run().phase!=='finished'||run().checkpoint===10&&!run().my_read)&&dismissed!==run().id)showOverlay();
  render();
- if(!inFlight && run()?.participant && !run().ready && run().question && acknowledged!==run().id&&!hasPendingChoiceResult(run())){
+ if(!state?.progress?.choices?.admin_passes?.[run()?.id] && !inFlight && run()?.participant && !run().ready && run().question && acknowledged!==run().id&&!hasPendingChoiceResult(run())){
   acknowledged=run().id;
   const expected=alive;
   transact('ready',{run_id:run().id},'正在準備題目…').catch(()=>{if(expected===alive)acknowledged=null;});
@@ -93,6 +93,7 @@ function countdown(){
 function introUnread(r){return [1,2,3,5,7,9,11,12,13].includes(r?.checkpoint)&&r.choice&&r.phase!=='story'&&r.phase!=='finished'&&read('intro-options-seen','0')!=='1';}
 function render(){
  renderContent();
+ if(state?.progress?.choices?.admin_passes?.[run()?.id])return;
  const controls=$('game-body').querySelector('.story-controls'),atOptions=controls?.querySelectorAll('button:not(.story-next)').length>1;
  if(atOptions&&visible){
   if(introUnread(run())){controls.replaceChildren(next(()=>{write('intro-options-seen','1');viewKey='';render();}));controls.closest('.story-paper').classList.add('story-paper-advance');}
@@ -102,6 +103,13 @@ function render(){
 }
 function renderContent(){
  if(!visible||!$('scanner-view').hidden )return;
+ const current=run();
+ if(current&&state?.progress?.choices?.admin_passes?.[current.id]){
+  const rescueKey='admin-pass:'+current.id;if(viewKey===rescueKey)return;
+  disposeDetour();viewKey=rescueKey;const body=$('game-body');body.className='game-body';body.dataset.phase='finished';body.replaceChildren();
+  $('game-path').replaceChildren(node('span','地點'),node('span',String(current.checkpoint),'checkpoint-number'));
+  scene('活動人員已協助通過這個地點。進度已保存，可以回首頁繼續旅程。',[button('返回首頁',()=>closeTerminal(),true)]);return;
+ }
  const source=run(),r=introUnread(source)?{...source,phase:'story'}:source;if(!r){$('game-body').replaceChildren(node('p','正在確認地點…','loading-copy'));return;}
  const phase=r.phase==='running'?(now()<Date.parse(r.starts_at)?'countdown':now()<Date.parse(r.deadline)?'quiz':'settling'):r.phase;
  const answering=phase==='quiz'&&!r.submitted&&r.participant;

@@ -33,11 +33,17 @@ export function createAdminRouter(config,repository){
  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  router.post('/action',async(req,res)=>{
   const body=req.body;
-  if(!body||!['leader','reset'].includes(body.action)||!uuid.test(body.team_id??'')||!uuid.test(body.request_id??'')||typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>200)throw new InputError('請選擇隊伍並填寫操作原因（最多 200 字）。');
+  if(!body||!['leader','reset','pass','remove'].includes(body.action)||!uuid.test(body.team_id??'')||!uuid.test(body.request_id??'')||typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>200)throw new InputError('請選擇隊伍並填寫操作原因（最多 200 字）。');
   const payload={reason:body.reason.trim()};
   if(body.action==='leader'){
    if(!uuid.test(body.leader_id??'')||(body.expected_leader!==null&&!uuid.test(body.expected_leader??'')))throw new InputError('請重新載入隊長與隊員名單。');
    Object.assign(payload,{leader_id:body.leader_id,expected_leader:body.expected_leader});
+  }else if(body.action==='remove'){
+   if(!uuid.test(body.player_id??'')||typeof body.confirm!=='string'||!/^\d{2}-\d{3,}$/.test(body.confirm))throw new InputError('請選擇隊員並輸入其玩家編號。');
+   Object.assign(payload,{player_id:body.player_id,confirm:body.confirm});
+  }else if(body.action==='pass'){
+   if(!Number.isInteger(body.checkpoint)||body.checkpoint<1||body.checkpoint>13||!uuid.test(body.run_id??'')||typeof body.confirm!=='string'||!/^\d{2}$/.test(body.confirm))throw new InputError('請重新確認目前地點與兩位數組號。');
+   Object.assign(payload,{checkpoint:body.checkpoint,run_id:body.run_id,confirm:body.confirm});
   }else{if(typeof body.confirm!=='string'||!/^\d{2}$/.test(body.confirm))throw new InputError('請輸入兩位數組號確認重設。');payload.confirm=body.confirm;}
   const result=await repository.adminAction(req.adminActor,body.request_id,body.action,body.team_id,payload);
   res.status(result.error?409:200).json(result);

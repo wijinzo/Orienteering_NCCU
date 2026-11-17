@@ -58,8 +58,8 @@ export function createRepository(config, request = fetch) {
       return result;
     },
     async getPlayer(playerId) {
-      const rows = await call(query('players', { id: `eq.${playerId}`, activity_id: `eq.${config.activityId}`, select: playerFields }));
-      return rows[0] ?? null;
+      const rows = await call(query('players', { id: `eq.${playerId}`, activity_id: `eq.${config.activityId}`, select: playerFields+',team_members!inner(team_id)' }));
+      if(!rows[0])return null;const {team_members,...player}=rows[0];return player;
     },
     async getProgress(playerId) {
       const rows = await call(query('player_progress', { player_id: `eq.${playerId}`, select: progressFields }));
