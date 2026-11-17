@@ -21,7 +21,7 @@ export function createApp({ config, repository, classifier = createClassifier({a
       'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
       'X-Frame-Options': 'DENY',
       'Permissions-Policy': 'camera=(self), microphone=()',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
     });
     if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
     next();

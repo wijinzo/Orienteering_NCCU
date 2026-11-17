@@ -1,3 +1,4 @@
+import {chooseCardPhoto,buildMemoryCard,showMemoryCard,closeMemoryCard} from './memory-card.js';
 import {checkpointFromLocation,checkpointUrl,homeUrl,APP_BASE_PATH} from './routing.js';
 import {isSoloTeam} from './play-mode.js';
 import {mountPhotoRecovery,updateRecoveryClocks,pinballWaitText} from './team-recovery.js';
@@ -28,7 +29,7 @@ function write(suffix,value){try{localStorage.setItem(sessionKey(suffix),String(
 function setStatus(text,error=false){$('game-status').textContent=text;$('game-status').dataset.error=error;$('game-retry').hidden=!error;$('game-use-code').hidden=!error;}
 function showOverlay(){const opened=visible;visible=true;$('checkpoint-overlay').hidden=false;document.querySelector('.app-shell').inert=true;document.body.classList.add('checkpoint-open');if(!opened){$('checkpoint-overlay').tabIndex=-1;$('checkpoint-overlay').focus({preventScroll:true});}}
 function disposeDetour(){document.getElementById('story-vote-panel')?.remove();document.getElementById('story-choice-result')?.remove();document.getElementById('story-vote-notice')?.remove();detourView?.dispose();detourView=null;detourId=null;}
-function hideOverlay(){disposeDetour();document.getElementById('story-vote-panel')?.remove();visible=false;$('checkpoint-overlay').hidden=true;document.querySelector('.app-shell').inert=false;document.body.classList.remove('checkpoint-open');viewKey='';}
+function hideOverlay(){closeMemoryCard();disposeDetour();document.getElementById('story-vote-panel')?.remove();visible=false;$('checkpoint-overlay').hidden=true;document.querySelector('.app-shell').inert=false;document.body.classList.remove('checkpoint-open');viewKey='';}
 function closeOverlay(){dismissed=run()?.id;stopCamera();hideOverlay();render();$('mission-action')?.focus();}
 function closeTerminal(){const current=run();closeOverlay();if(current?.phase==='finished'&&[11,13,9,12,7].includes(current.checkpoint))window.dispatchEvent(new CustomEvent('memory-terminal',{detail:{checkpoint:current.checkpoint,runId:current.id}}));}
 
@@ -275,11 +276,20 @@ function render10(r,key){
    body.append(button(r.my_letter?'打開奶龍的回信':'請奶龍寫一封回信',()=>{if(r.my_letter){write('note-stage','letter');write('letter-page',0);viewKey='';render();}else transact('letter',{run_id:r.id},'奶龍正在讀你的回憶、寫一封只給你的信…').catch(()=>{});},true),node('p','回信由 AI 根據你的留言生成，只有自己能查看。領取時會將這則留言傳送給 OpenAI。','stage-note'),button('先收好回憶，和奶龍道別',()=>leaveFinale()),button('修改我的留言',()=>{write('note-stage','edit');viewKey='';render();}));
   }else if(stage==='letter'&&r.my_letter){
    const pages=paginateText(r.my_letter,65),page=Math.min(Number(read('letter-page','0')),pages.length-1);
-   body.classList.add('finale-letter');body.append(node('h1','奶龍留給你的一封信','find-heading'),node('p',player.name??player.player_code,'stage-note'));
+   const cardName=team?.members?.find(member=>member.id===player.id)?.name??player.name??player.player_code;
+   body.classList.add('finale-letter');body.append(node('h1','奶龍留給你的一封信','find-heading'),node('p',cardName,'stage-note'));
    say(pages[page],[next(()=>{if(page<pages.length-1){write('letter-page',page+1);viewKey='';render();}else leaveFinale();})]);
-   body.append(node('p',`AI 角色回信 · ${page+1}／${pages.length} · 已私人保存`,'stage-note'),button('保存文字紀念卡',()=>{
-    const card=['記憶之境｜奶龍的私人回信',player.name??player.player_code,'',r.my_note,'','—— 奶龍的回信 ——',r.my_letter,'',new Date(r.letter_saved_at).toLocaleDateString('zh-TW'),'AI 角色回信'].join('\n');const url=URL.createObjectURL(new Blob([card],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='記憶之境-奶龍回信.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-   }),button('回到我的回憶',()=>{write('note-stage','edit');viewKey='';render();}));
+   const cardStatus=node('p','','memory-card-status');cardStatus.setAttribute('role','status');
+   const saveCard=button('保存圖片紀念卡',async()=>{
+    if(saveCard.disabled)return;saveCard.disabled=true;saveCard.textContent='正在製作紀念卡…';cardStatus.textContent='正在把照片、回憶與回信收進圖片…';
+    try{
+     const photoIndex=chooseCardPhoto(read,write,r.letter_saved_at??r.id);
+     const blob=await buildMemoryCard({photoIndex,name:cardName,note:r.my_note,letter:r.my_letter,savedAt:r.letter_saved_at});
+     if(saveCard.isConnected&&!saveCard.closest('[hidden],[inert]')){showMemoryCard(blob,{name:cardName});cardStatus.textContent='紀念卡做好了，可以長按圖片或下載保存。';}
+    }catch(error){if(cardStatus.isConnected)cardStatus.textContent=error.message||'紀念卡製作失敗，請再試一次。';}
+    finally{saveCard.disabled=false;saveCard.textContent='保存圖片紀念卡';}
+   });
+   body.append(node('p',`AI 角色回信 · ${page+1}／${pages.length} · 已私人保存`,'stage-note'),saveCard,cardStatus,button('回到我的回憶',()=>{write('note-stage','edit');viewKey='';render();}));
   }else if(stage==='skip'){
    say('沒關係，有些回憶先放在心裡也很好。謝謝你們幫本龍找回這些記憶，我們下次見！',[next(()=>leaveFinale())]);body.append(button('我想留下回憶',()=>{write('note-stage','edit');viewKey='';render();}));
   }else{

@@ -1,0 +1,9 @@
+.memory-card-preview{width:min(520px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--paper);color:var(--ink)}
+.memory-card-preview::backdrop{background:#16232eb3}
+.memory-card-preview header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.memory-card-preview h2{font-size:20px;margin:0}
+.memory-card-preview p{font-size:14px;line-height:1.7;margin:12px 0}
+.memory-card-preview img{display:block;width:100%;height:auto;border-radius:4px}
+.memory-card-preview a{display:block;text-align:center;text-decoration:none;margin-top:16px}
+.memory-card-status{font-size:13px;line-height:1.6;margin:0;text-align:center;background:var(--paper);border-radius:10px;padding:6px 10px}
+.memory-card-status:empty{display:none}
